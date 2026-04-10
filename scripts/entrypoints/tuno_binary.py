@@ -1,4 +1,4 @@
-"""PyInstaller entrypoint for the standalone tUNO client binary."""
+"""PyInstaller entrypoint for the standalone Tuno client binary."""
 
 from __future__ import annotations
 

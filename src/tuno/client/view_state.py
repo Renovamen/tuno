@@ -48,7 +48,7 @@ def build_view_state(
 ) -> ClientViewState:
     """Convert client runtime state into the strings/renderables needed by widgets."""
     return ClientViewState(
-        border_title=f"tUNO v{app_version} ({server_target})",
+        border_title=f"Tuno v{app_version} ({server_target})",
         local_status_body=render_local_status_body(state),
         hand_visible=bool(state.get("started") and not state.get("finished")),
         hand_body=render_hand_body(state, say_uno_next=say_uno_next),

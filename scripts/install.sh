@@ -89,7 +89,7 @@ ARTIFACT="$(detect_artifact)"
 ARCHIVE="${ARTIFACT}.tar.gz"
 CHECKSUM="${ARTIFACT}.sha256"
 
-echo "Installing tUNO client binary (${ARTIFACT}) from ${REPO} ${VERSION}."
+echo "Installing Tuno client binary (${ARTIFACT}) from ${REPO} ${VERSION}."
 echo "Warning: install only from trusted release assets."
 
 curl -fsSL "$(download_url "${ARTIFACT}")" -o "${TMP_DIR}/${ARCHIVE}"

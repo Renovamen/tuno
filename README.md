@@ -1,4 +1,4 @@
-# tUNO
+# Tuno
 
 A terminal-first UNO game.
 
