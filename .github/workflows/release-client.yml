@@ -39,11 +39,10 @@ jobs:
       - name: Verify binary exists
         run: test -x dist/tuno/tuno
 
-      - name: Package artifact
+      - name: Verify packaged artifact
         run: |
-          mkdir -p release
-          tar -czf "release/${{ matrix.artifact }}.tar.gz" -C dist tuno
-          (cd release && shasum -a 256 "${{ matrix.artifact }}.tar.gz" > "${{ matrix.artifact }}.sha256")
+          test -f "release/${{ matrix.artifact }}.tar.gz"
+          test -f "release/${{ matrix.artifact }}.sha256"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

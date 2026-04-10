@@ -2,29 +2,32 @@
 
 A terminal-first UNO game.
 
-## Install
+## Client 
 
-The installer downloads the **client only** and exposes it as `tuno`.
+### macOS / Linux
+
+#### Install
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Renovamen/tuno/main/scripts/install.sh | sh
 ```
 
-If `~/.local/bin` is not on your `PATH`, add it before running `tuno`:
+The install script puts `tuno` in `~/.local/bin`. If it's not on your `PATH`, add it:
 
 ```bash
 export PATH="$HOME/.local/bin:$PATH"
 ```
 
-macOS may quarantine unsigned downloaded binaries. If needed:
+#### Uninstall:
 
 ```bash
-xattr -dr com.apple.quarantine ~/.local/share/tuno ~/.local/bin/tuno
+rm -rf ~/.local/share/tuno
+rm -f ~/.local/bin/tuno
 ```
 
 ## Server
 
-Server binaries are not shipped. Run the server from source on a machine with Python 3.11+:
+Run the server from source on a machine with Python 3.11+:
 
 ```bash
 git clone https://github.com/Renovamen/tuno.git
@@ -61,34 +64,6 @@ Type `Tab` to autocomplete the current command.
 - Arm UNO with `/uno` **before** playing a card from a two-card hand. Missing UNO triggers an immediate 2-card penalty.
 - A drawn card is immediately playable if it is valid.
 - `Wild +4` is rejected if the player still has a non-wild card matching the current color.
-
-## Development
-
-### Environment setup
-
-```bash
-conda create -n tuno python=3.12
-conda activate tuno
-
-python -m pip install -e ".[dev]"
-
-export PYTHONPATH=src
-```
-
-### Run locally
-
-```bash
-python -m tuno.server.local --host 127.0.0.1 --port 8765
-python -m tuno.client.app ws://127.0.0.1:8765
-```
-
-### Tests
-
-```bash
-PYTHONPATH=src python -m unittest discover -s tests -v
-PYTHONPATH=src python -m ruff check .
-PYTHONPATH=src python -m ruff format --check .
-```
 
 ## Todo
 
