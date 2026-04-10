@@ -1,0 +1,123 @@
+App {
+    background: ansi_default;
+    color: ansi_default;
+}
+
+Screen {
+    layout: vertical;
+    background: ansi_default;
+    scrollbar-size-vertical: 0;
+}
+
+#main-frame {
+    height: 22;
+    border: round $accent;
+    border-title-color: $accent;
+    border-title-style: bold;
+    background: ansi_default;
+    padding: 1;
+    margin-bottom: 0;
+}
+
+#main-columns {
+    layout: grid;
+    grid-size: 2;
+    grid-columns: 1fr 1fr;
+    grid-rows: 1fr;
+    height: 1fr;
+    background: ansi_default;
+}
+
+#left-panel {
+    height: 1fr;
+    background: ansi_default;
+    padding: 0 2 0 0;
+    border-right: solid $accent 80%;
+    overflow: hidden hidden;
+}
+
+#right-panel {
+    height: 1fr;
+    background: ansi_default;
+    padding: 0 0 0 2;
+}
+
+#right-panel-sections {
+    width: 1fr;
+    height: 1fr;
+}
+
+#tuno-logo {
+    height: auto;
+    color: $accent;
+    content-align: center middle;
+}
+
+#hand-section {
+    height: 1fr;
+}
+
+#hand-scroll {
+    height: 1fr;
+    background: ansi_default;
+    scrollbar-size: 0 0;
+}
+
+.section-title {
+    color: $accent;
+    text-style: bold;
+}
+
+.section-divider {
+    height: 1;
+    border-top: solid $accent 80%;
+}
+
+#recent-top-card-divider {
+    border-top: ascii $accent 80%;
+}
+
+.section-gap {
+    height: 1;
+}
+
+#command-zone {
+    height: auto;
+    background: ansi_default;
+    margin: 0;
+}
+
+#command-meta {
+    height: auto;
+    color: $foreground;
+    margin: 0 0 0 2;
+}
+
+#command-suggestions {
+    height: auto;
+    background: ansi_default;
+    padding: 0;
+    margin: 0;
+}
+
+#command-input-shell {
+    height: auto;
+    min-height: 1;
+    background: ansi_default;
+    border: round $border;
+    margin: 0;
+    padding: 0 1;
+}
+
+#command-input {
+    width: 1fr;
+    height: 1;
+    background: ansi_default;
+    padding: 0;
+    border: none;
+    margin: 0;
+}
+
+#command-input:focus {
+    background-tint: 0%;
+}

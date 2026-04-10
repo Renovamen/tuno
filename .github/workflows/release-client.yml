@@ -1,0 +1,76 @@
+name: Release client binary
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build-client:
+    name: Build ${{ matrix.artifact }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            artifact: tuno-macos-arm64
+          - os: macos-13
+            artifact: tuno-macos-x86_64
+          - os: ubuntu-22.04
+            artifact: tuno-linux-x86_64
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build dependencies
+        run: python -m pip install -e ".[build]"
+
+      - name: Build client binary
+        run: ./scripts/build-client-binary.sh
+
+      - name: Verify binary exists
+        run: test -x dist/tuno/tuno
+
+      - name: Package artifact
+        run: |
+          mkdir -p release
+          tar -czf "release/${{ matrix.artifact }}.tar.gz" -C dist tuno
+          (cd release && shasum -a 256 "${{ matrix.artifact }}.tar.gz" > "${{ matrix.artifact }}.sha256")
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: |
+            release/${{ matrix.artifact }}.tar.gz
+            release/${{ matrix.artifact }}.sha256
+
+  publish:
+    name: Publish release assets
+    needs: build-client
+    runs-on: ubuntu-22.04
+    if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release
+          merge-multiple: true
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release/*.tar.gz
+            release/*.sha256

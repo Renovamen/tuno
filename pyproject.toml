@@ -1,0 +1,54 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tuno"
+version = "0.1.0"
+description = "Terminal UNO with an authoritative Python server and colorful Textual client."
+readme = "README.md"
+requires-python = ">3.10"
+dependencies = [
+  "textual>=0.76,<1.0",
+  "websockets>=12,<16",
+]
+
+[project.optional-dependencies]
+dev = [
+  "ruff>=0.15,<0.16",
+]
+build = [
+  "pyinstaller>=6,<7",
+]
+
+[project.scripts]
+tuno = "tuno.client.app:main"
+tuno-server = "tuno.server.local:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"tuno.client" = ["*.tcss"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests", "scripts"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/_client_app_support.py" = ["E402"]
+"tests/test_client_app_interaction.py" = ["E402"]
+"tests/test_game.py" = ["E402"]
+"tests/test_server_client_connection.py" = ["E402"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
