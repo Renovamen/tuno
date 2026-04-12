@@ -106,7 +106,7 @@ class TunoApp(App):
         try:
             self._app_version = pkg_version("tuno")
         except Exception:
-            self._app_version = "0.1.0"
+            self._app_version = "0.1.1"
 
         self.query_one("#command-input", Input).focus()
         self.render_state()
