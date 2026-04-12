@@ -30,6 +30,11 @@ detect_artifact() {
 
 cd "${ROOT_DIR}"
 mkdir -p "${SPEC_PATH}"
+CERTIFI_CACERT="$(python - <<'PY'
+import certifi
+print(certifi.where())
+PY
+)"
 
 python -m PyInstaller \
   --clean \
@@ -38,6 +43,7 @@ python -m PyInstaller \
   --workpath "${WORK_PATH}" \
   --specpath "${SPEC_PATH}" \
   --add-data "${ROOT_DIR}/src/tuno/client/app.tcss:tuno/client" \
+  --add-data "${CERTIFI_CACERT}:certifi" \
   scripts/entrypoints/tuno_binary.py
 
 ARTIFACT="$(detect_artifact)"

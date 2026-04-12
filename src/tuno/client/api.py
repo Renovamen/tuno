@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from typing import Any, AsyncIterator, Dict
+from urllib.parse import urlparse
 
+from tuno.client.tls import build_client_ssl_context
 from tuno.protocol.messages import decode_server_message, encode_message
 
 
@@ -18,7 +20,8 @@ class ClientAPI:
         """Open the websocket connection to the target server."""
         from websockets.asyncio.client import connect
 
-        self.websocket = await connect(self.url)
+        ssl_context = build_client_ssl_context() if urlparse(self.url).scheme == "wss" else None
+        self.websocket = await connect(self.url, ssl=ssl_context)
 
     async def close(self) -> None:
         """Close and forget the current websocket connection."""

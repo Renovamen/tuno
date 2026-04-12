@@ -9,7 +9,7 @@ A terminal-first UNO game.
 #### Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Renovamen/tuno/main/scripts/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/Renovamen/tuno/refs/heads/main/scripts/install.sh | sh
 ```
 
 The install script puts `tuno` in `~/.local/bin`. If it's not on your `PATH`, add it:
