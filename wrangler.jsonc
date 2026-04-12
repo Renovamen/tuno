@@ -1,0 +1,25 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "tuno",
+  "main": "src/worker.py",
+  "compatibility_date": "2026-04-03",
+  "compatibility_flags": ["python_workers"],
+  "workers_dev": true,
+  "python_modules": {
+    "excludes": ["**/*.pyc", "**/__pycache__"]
+  },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "TUNO_GAME",
+        "class_name": "TunoGame"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["TunoGame"]
+    }
+  ]
+}

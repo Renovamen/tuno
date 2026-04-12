@@ -5,20 +5,24 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "tuno"
 version = "0.1.0"
-description = "Terminal UNO with an authoritative Python server and colorful Textual client."
+description = "A terminal-first UNO game."
 readme = "README.md"
-requires-python = ">3.10"
+requires-python = ">=3.12"
 dependencies = [
-  "textual>=0.76,<1.0",
-  "websockets>=12,<16",
+    "textual>=0.76,<1.0",
+    "websockets>=12,<16",
 ]
 
 [project.optional-dependencies]
 dev = [
-  "ruff>=0.15,<0.16",
+    "ruff>=0.15,<0.16",
+]
+worker = [
+    "workers-py",
+    "workers-runtime-sdk",
 ]
 build = [
-  "pyinstaller>=6,<7",
+    "pyinstaller>=6,<7",
 ]
 
 [project.scripts]
@@ -36,7 +40,7 @@ where = ["src"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py311"
+target-version = "py312"
 src = ["src", "tests", "scripts"]
 
 [tool.ruff.lint]
@@ -45,7 +49,6 @@ ignore = ["E501"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/_client_app_support.py" = ["E402"]
-"tests/test_client_app_interaction.py" = ["E402"]
 "tests/test_game.py" = ["E402"]
 "tests/test_server_client_connection.py" = ["E402"]
 

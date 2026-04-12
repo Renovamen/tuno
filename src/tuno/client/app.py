@@ -47,7 +47,9 @@ class TunoApp(App):
         self.player_id: Optional[str] = None
         self.state: Dict[str, Any] = {}
         self.say_uno_next = False
+        self._exiting = False
         self.listener_task: Optional[asyncio.Task] = None
+        self.shutdown_task: Optional[asyncio.Task] = None
         self.command_feedback_message: Optional[str] = None
         self.completion_state = CompletionState()
 
@@ -211,24 +213,38 @@ class TunoApp(App):
         self.listener_task = asyncio.create_task(self.listen_loop())
 
     async def exit_client(self) -> None:
-        """Leave the game cleanly, close transport resources, and exit the UI."""
-        if self.api is not None:
-            if self.player_id is not None:
-                with contextlib.suppress(Exception):
-                    await self.api.send("leave")
-            with contextlib.suppress(Exception):
-                await self.api.close()
-
-        if self.listener_task is not None:
-            self.listener_task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await self.listener_task
-
+        """Exit the UI immediately and finish websocket cleanup in the background."""
+        self._exiting = True
+        api = self.api
+        player_id = self.player_id
+        listener_task = self.listener_task
         self.api = None
         self.player_id = None
         self.state = {}
-
+        self.listener_task = None
+        self.shutdown_task = asyncio.create_task(
+            self._shutdown_transport(api, player_id, listener_task)
+        )
         self.exit()
+
+    async def _shutdown_transport(
+        self,
+        api: Optional[ClientAPI],
+        player_id: Optional[str],
+        listener_task: Optional[asyncio.Task],
+    ) -> None:
+        """Finish leave/close cleanup without blocking the visible app exit path."""
+        if api is not None:
+            if player_id is not None:
+                with contextlib.suppress(Exception):
+                    await api.send("leave")
+            with contextlib.suppress(Exception):
+                await api.close()
+
+        if listener_task is not None:
+            listener_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await listener_task
 
     async def listen_loop(self) -> None:
         """Consume server events until the websocket closes or raises."""
@@ -238,6 +254,8 @@ class TunoApp(App):
             async for message in self.api.events():
                 await self.handle_message(message)
         except Exception as exc:  # pragma: no cover
+            if self._exiting:
+                return
             self.player_id = None
             self.api = None
             self.state = {}

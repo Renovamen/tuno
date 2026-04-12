@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-from rich.markup import escape
+
+def escape(text: str) -> str:
+    """Escape user text for Rich markup without importing Rich at module load time."""
+    return text.replace("\\", "\\\\").replace("[", "\\[").replace("]", "\\]")
 
 
 def lobby_waiting() -> str:

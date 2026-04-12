@@ -228,7 +228,14 @@ class GameState:
 
         card = player.hand[hand_index]
 
-        if self.has_drawn_this_turn and self.drawn_card is not None and card is not self.drawn_card:
+        # The newly drawn card lives at the end of the hand. Comparing object identity is
+        # unreliable once a game is serialized and restored (for example in the Cloudflare
+        # Durable Object path), so keep this rule value-based and position-based instead.
+        if (
+            self.has_drawn_this_turn
+            and self.drawn_card is not None
+            and (hand_index != len(player.hand) - 1 or card != self.drawn_card)
+        ):
             raise GameError("After drawing, you may only play the card you just drew.")
         if not self._is_play_legal(player, card):
             raise GameError("That card can't be played right now.", code="illegal_play")

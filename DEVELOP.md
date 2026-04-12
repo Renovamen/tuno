@@ -3,11 +3,20 @@
 ## Environment
 
 ```bash
+git clone https://github.com/Renovamen/tuno.git
+cd tuno
+
 conda create -n tuno python=3.12
 conda activate tuno
 
 python -m pip install -e ".[dev]"
 export PYTHONPATH=src
+```
+
+For Cloudflare Worker development, install the worker extra as well:
+
+```bash
+python -m pip install -e ".[dev,worker]"
 ```
 
 For client binary builds, install the build extra:
@@ -29,6 +38,24 @@ Start the client:
 ```bash
 python -m tuno.client.app ws://127.0.0.1:8765
 ```
+
+## Cloudflare Workers
+
+Local development:
+
+```bash
+uv run pywrangler dev
+```
+
+Deploy on cloudflare workers:
+
+```bash
+uv run pywrangler deploy
+```
+
+The Worker supports an optional `?game=<name>` query parameter. If omitted, it uses the default single shared game. 
+
+If you change the Durable Object class name or add more Durable Objects later, update the `durable_objects.bindings` and `migrations` sections in [`wrangler.jsonc`](wrangler.jsonc) before deploying.
 
 ## Tests
 

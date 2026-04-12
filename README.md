@@ -25,23 +25,26 @@ rm -rf ~/.local/share/tuno
 rm -f ~/.local/bin/tuno
 ```
 
-## Server
+## Server: Deploy on Cloudflare Workers
 
-Run the server from source on a machine with Python 3.11+:
+Ensure [uv](https://docs.astral.sh/uv/#installation) is installed. Then:
 
 ```bash
-git clone https://github.com/Renovamen/tuno.git
-cd tuno
-python -m pip install .
-python -m tuno.server.local --host 0.0.0.0 --port 8765
+uv run pywrangler deploy
 ```
 
 ## How to play
 
-Connect to a running server:
+After deployment, connect the client to the Worker URL:
 
 ```bash
-tuno ws://server-host:8765
+tuno wss://<your-worker>.<subdomain>.workers.dev
+```
+
+Here is a hosted server to try:
+
+```bash
+tuno wss://tuno.renovamenzxh.workers.dev
 ```
 
 ### Commands
@@ -68,5 +71,6 @@ Type `Tab` to autocomplete the current command.
 ## Todo
 
 - [ ] Multiple game rooms
-- [ ] House UNO rules
+- [ ] House rules
 - [ ] More players
+- [ ] Chat

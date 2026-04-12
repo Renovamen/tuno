@@ -102,3 +102,35 @@ class GameStateTests(unittest.TestCase):
         game.pass_turn(alice.player_id)
         self.assertFalse(game.has_drawn_this_turn)
         self.assertEqual(game.current_player.player_id, bob.player_id)
+
+    def test_after_drawing_only_the_new_last_card_is_playable(self) -> None:
+        """Allow only the newly drawn final hand card, even when an older duplicate exists.
+
+        This covers the edge case where the player already has a card identical to the one
+        they just drew. After drawing, the rules still allow playing only the new last card,
+        not an older matching duplicate earlier in the hand. The test first proves the draw
+        remains playable, then rejects playing index 0, and finally accepts playing the last
+        card that was just drawn.
+        """
+        game = self.make_started_game()
+
+        alice = game.players[0]
+        bob = game.players[1]
+
+        alice.hand = [Card("green", "2"), Card("green", "2")]
+        bob.hand = [Card("blue", "4")]
+
+        game.draw_pile = [Card("yellow", "8"), Card("green", "2")]
+        game.discard_pile = [Card("green", "9")]
+        game.current_color = "green"
+        game.current_player_index = 0
+
+        game.draw_card(alice.player_id)
+        self.assertTrue(game.has_drawn_this_turn)
+        self.assertEqual(alice.hand[-1], game.drawn_card)
+
+        with self.assertRaises(GameError):
+            game.play_card(alice.player_id, 0)
+
+        game.play_card(alice.player_id, len(alice.hand) - 1)
+        self.assertFalse(game.has_drawn_this_turn)
