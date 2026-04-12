@@ -60,9 +60,9 @@ If you change the Durable Object class name or add more Durable Objects later, u
 ## Tests
 
 ```bash
-PYTHONPATH=src python -m unittest discover -s tests -v
-PYTHONPATH=src python -m ruff check .
-PYTHONPATH=src python -m ruff format --check .
+python -m unittest discover -s tests -v
+python -m ruff check .
+python -m ruff format --check .
 ```
 
 ## Lint

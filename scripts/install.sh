@@ -116,8 +116,20 @@ chmod 0755 "${INSTALL_DIR}/tuno"
 echo
 echo "Installed tuno app to ${APP_DIR}"
 echo "Installed tuno command to ${INSTALL_DIR}/tuno"
-echo "Run: tuno ws://server-host:8765"
+echo "Run (local server): tuno ws://<server-host>:<port>"
+echo "Run (Cloudflare Worker): tuno wss://<your-worker>.<subdomain>.workers.dev"
+
 case ":${PATH}:" in
   *":${INSTALL_DIR}:"*) ;;
-  *) echo "If '${INSTALL_DIR}' is not on your PATH, add it before running tuno." ;;
+  *)
+    echo "If '${INSTALL_DIR}' is not on your PATH, add it before running tuno."
+    echo "Current shell:"
+    echo "  export PATH=\"${INSTALL_DIR}:\$PATH\""
+    echo "Persist for zsh:"
+    echo "  echo 'export PATH=\"${INSTALL_DIR}:\$PATH\"' >> ~/.zshrc"
+    echo "  source ~/.zshrc"
+    echo "Persist for bash:"
+    echo "  echo 'export PATH=\"${INSTALL_DIR}:\$PATH\"' >> ~/.bashrc"
+    echo "  source ~/.bashrc"
+    ;;
 esac

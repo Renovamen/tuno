@@ -18,11 +18,24 @@ The install script puts `tuno` in `~/.local/bin`. If it's not on your `PATH`, ad
 export PATH="$HOME/.local/bin:$PATH"
 ```
 
+<details>
+<summary>Make the change permanent</summary>
+
+```bash
+# zsh
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
+source ~/.zshrc
+
+# bash
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc
+```
+</details>
+
 #### Uninstall:
 
 ```bash
-rm -rf ~/.local/share/tuno
-rm -f ~/.local/bin/tuno
+rm -rf ~/.local/share/tuno ~/.local/bin/tuno
 ```
 
 ## Server: Deploy on Cloudflare Workers
@@ -74,3 +87,7 @@ Type `Tab` to autocomplete the current command.
 - [ ] House rules
 - [ ] More players
 - [ ] Chat
+
+## Development
+
+Check [DEVELOP.md](DEVELOP.md) for development instructions.
