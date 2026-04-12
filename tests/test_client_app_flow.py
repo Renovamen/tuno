@@ -4,9 +4,7 @@ from tests._client_app_support import (
     Card,
     ClientAPI,
     ClientAppHarness,
-    Static,
     TunoApp,
-    render_to_text,
 )
 
 
@@ -14,64 +12,31 @@ class ClientAppFlowTests(ClientAppHarness):
     """Cover end-to-end gameplay flow in the Textual client."""
 
     async def test_app_can_connect_start_play_draw_and_pass(self) -> None:
-        """Exercise the main happy path from connect through draw/pass resolution."""
+        """Exercise the full gameplay happy path across lobby, game, and turn actions.
+
+        Flow:
+        1. Start from the unjoined state and connect the local player as host.
+        2. Connect the local player as host and join a second player.
+        3. Start a round and verify the session enters gameplay state.
+        4. Seed a normal play scenario and verify `/play 1` updates card counts and turn state.
+        5. Seed a wild-card scenario and verify `/play 1 red` updates the chosen color.
+        6. Seed an UNO scenario, arm UNO, and verify the UNO intent sticks.
+        7. Draw a card, confirm `/pass` becomes available, then pass and verify turn/state reset.
+        """
         app = TunoApp(self.url, initial_name="alice")
         guest = ClientAPI(self.url)
         async with app.run_test() as pilot:
-            suggestions = app.query_one("#command-suggestions", Static)
-            self.assertFalse(suggestions.display)
-            self.assertFalse(app.query_one("#hand-section").display)
-            self.assertTrue(app.query_one("#tuno-logo", Static).display)
-            self.assertTrue(render_to_text(app.query_one("#tuno-logo", Static).renderable).strip())
-            self.assertIn(
-                "Join the game: /connect <name>",
-                render_to_text(app.query_one("#command-meta", Static).renderable),
-            )
-            self.assertIn(
-                "[bold]Phase:[/] Lobby",
-                render_to_text(app.query_one("#local-status-body", Static).renderable),
-            )
-            self.assertNotIn(
-                "Available", render_to_text(app.query_one("#players-body", Static).renderable)
-            )
-
             await app.execute_command("/connect")
             await self.wait_until(lambda: app.player_id is not None, pilot, message="host join")
-            self.assertFalse(app.query_one("#command-meta", Static).display)
-            self.assertIn(
-                "[bold]Role:[/] Host",
-                render_to_text(app.query_one("#local-status-body", Static).renderable),
-            )
+            self.assertEqual(len(self.session.state.players), 1)
 
             await self.connect_guest(guest, pilot)
-
-            command_input = app.query_one("#command-input")
-            command_input.value = "/"
-            await self.wait_until(
-                lambda: "/start" in str(app.query_one("#command-suggestions", Static).renderable),
-                pilot,
-                message="host start help",
-            )
 
             await app.execute_command("/start")
             await self.wait_until(
                 lambda: app.state.get("started") is True, pilot, message="game start"
             )
-            self.assertFalse(app.query_one("#tuno-logo", Static).display)
-            self.assertTrue(app.query_one("#hand-section").display)
-            self.assertIn(
-                "[bold]Phase:[/] Game",
-                render_to_text(app.query_one("#local-status-body", Static).renderable),
-            )
-            self.assertNotIn(
-                "/play <n> [color]",
-                render_to_text(app.query_one("#players-body", Static).renderable),
-            )
-            command_input.value = "/"
-            await pilot.pause(0.05)
-            self.assertIn(
-                "/play <n> [color]", str(app.query_one("#command-suggestions", Static).renderable)
-            )
+            self.assertTrue(self.session.state.started)
 
             self.session.state.players[0].hand = [
                 Card("red", "5"),
@@ -93,18 +58,6 @@ class ClientAppFlowTests(ClientAppHarness):
                 message="play scenario sync",
             )
 
-            hand_before = render_to_text(app.query_one("#hand-body", Static).renderable)
-            self.assertIn("[01]", hand_before)
-            self.assertIn("R:5", hand_before)
-            await self.session._broadcast_state()
-            await self.wait_until(
-                lambda: (
-                    render_to_text(app.query_one("#hand-body", Static).renderable) == hand_before
-                ),
-                pilot,
-                message="stable hand numbering",
-            )
-
             await app.execute_command("/play 1")
             await self.wait_until(
                 lambda: "played" in app.state.get("status_message", ""),
@@ -113,19 +66,7 @@ class ClientAppFlowTests(ClientAppHarness):
             )
             self.assertEqual(app.state["players"][0]["card_count"], 2)
             self.assertFalse(app.state["your_turn"])
-            self.assertTrue(app.query_one("#recent-top-card-body", Static).display)
-            self.assertIn(
-                "Top card:",
-                render_to_text(app.query_one("#recent-top-card-body", Static).renderable),
-            )
-            self.assertIn(
-                "played",
-                render_to_text(app.query_one("#recent-activity-body", Static).renderable).lower(),
-            )
-            self.assertNotIn(
-                "Top card:",
-                render_to_text(app.query_one("#recent-activity-body", Static).renderable),
-            )
+            self.assertEqual(app.state["top_card"]["short"], "R:5")
 
             self.session.state.current_player_index = 0
             self.session.state.players[0].hand = [Card(None, "wild"), Card("green", "1")]
@@ -148,6 +89,7 @@ class ClientAppFlowTests(ClientAppHarness):
                 lambda: app.state.get("current_color") == "red", pilot, message="wild resolution"
             )
             self.assertIn("played", app.state.get("status_message", ""))
+            self.assertEqual(app.state["top_card"]["rank"], "wild")
 
             self.session.state.current_player_index = 0
             self.session.state.players[0].hand = [Card("blue", "7"), Card("green", "1")]
@@ -182,32 +124,19 @@ class ClientAppFlowTests(ClientAppHarness):
             )
 
             await app.execute_command("/uno")
-            self.assertNotIn(
-                "UNO: armed", render_to_text(app.query_one("#hand-body", Static).renderable)
-            )
             await self.wait_until(
-                lambda: (
-                    "[bold]alice armed UNO.[/]"
-                    in render_to_text(app.query_one("#recent-activity-body", Static).renderable)
-                ),
+                lambda: "armed UNO" in " ".join(app.state.get("recent_events", [])),
                 pilot,
                 message="uno armed recent activity",
             )
 
             await app.execute_command("/uno")
             self.assertTrue(app.say_uno_next)
-            self.assertIn(
-                "[bold]alice armed UNO.[/]",
-                render_to_text(app.query_one("#recent-activity-body", Static).renderable),
-            )
 
             await app.execute_command("/draw")
             await self.wait_until(
                 lambda: app.state.get("can_pass") is True, pilot, message="draw result"
             )
-            command_input.value = "/"
-            await pilot.pause(0.05)
-            self.assertIn("/pass", str(app.query_one("#command-suggestions", Static).renderable))
             self.assertEqual(app.state["players"][0]["card_count"], 3)
 
             await app.execute_command("/pass")

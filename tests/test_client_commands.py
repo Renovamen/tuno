@@ -39,14 +39,20 @@ class AvailableCommandsTests(unittest.TestCase):
     def test_lobby_host_help(self) -> None:
         """Expose `/start` only when the joined player can start the lobby."""
         cmds = derive_available_commands(
-            {"started": False, "can_start": True}, connected=True, joined=True, uno_armed=False
+            {"started": False, "can_start": True},
+            connected=True,
+            joined=True,
+            uno_armed=False,
         )
         self.assertEqual(cmds, ["/start", "/help", "/exit"])
 
     def test_lobby_non_host_help(self) -> None:
         """Hide `/start` from lobby players who are not allowed to start."""
         cmds = derive_available_commands(
-            {"started": False, "can_start": False}, connected=True, joined=True, uno_armed=False
+            {"started": False, "can_start": False},
+            connected=True,
+            joined=True,
+            uno_armed=False,
         )
         self.assertEqual(cmds, ["/help", "/exit"])
 
@@ -69,20 +75,29 @@ class AvailableCommandsTests(unittest.TestCase):
     def test_game_waiting_help(self) -> None:
         """Collapse the command list to help while waiting for another player."""
         cmds = derive_available_commands(
-            {"started": True, "your_turn": False}, connected=True, joined=True, uno_armed=False
+            {"started": True, "your_turn": False},
+            connected=True,
+            joined=True,
+            uno_armed=False,
         )
         self.assertEqual(cmds, ["/help", "/exit"])
 
     def test_finished_help(self) -> None:
         """Expose `/start` again to the host after a finished round."""
         cmds = derive_available_commands(
-            {"finished": True, "can_start": True}, connected=True, joined=True, uno_armed=False
+            {"finished": True, "can_start": True},
+            connected=True,
+            joined=True,
+            uno_armed=False,
         )
         self.assertEqual(cmds, ["/start", "/help", "/exit"])
 
     def test_finished_non_host_hides_restart(self) -> None:
         """Do not expose `/start` to non-host players after a finished round."""
         cmds = derive_available_commands(
-            {"finished": True, "can_start": False}, connected=True, joined=True, uno_armed=False
+            {"finished": True, "can_start": False},
+            connected=True,
+            joined=True,
+            uno_armed=False,
         )
         self.assertEqual(cmds, ["/help", "/exit"])
