@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Any, Awaitable, Callable, Dict, Optional
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, Dict, Optional
 
-from tuno.client.commands import ParsedCommand
-from tuno.client.completion import WILD_RANKS
 from tuno.client.rendering import my_hand
+from tuno.core.cards import WILD_RANKS
+
+if TYPE_CHECKING:
+    from tuno.client.commands import ParsedCommand
 
 ConnectFn = Callable[[Optional[str], Optional[str]], Awaitable[None]]
 SendFn = Callable[[str], Awaitable[None]]

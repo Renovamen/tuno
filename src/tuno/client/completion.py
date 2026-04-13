@@ -6,10 +6,11 @@ from dataclasses import dataclass, field
 from os.path import commonprefix
 from typing import Any, Dict, List, Optional, Sequence
 
+from tuno.core.cards import WILD_RANKS
+
 SUGGESTION_ACTIVE_STYLE = "bold #7aa2f7"
 SUGGESTION_DEFAULT_STYLE = "white"
 SUGGESTION_EMPTY_STYLE = "dim"
-WILD_RANKS = {"wild", "wild_draw_four"}
 
 
 @dataclass
@@ -32,6 +33,7 @@ def sync_completion_state(
 ) -> CompletionState:
     """Align cached completion state with the latest candidate list."""
     inserts = [candidate["insert"] for candidate in candidates]
+
     if inserts != state.completion_candidates:
         state.completion_candidates = inserts
         state.completion_index = 0
@@ -39,6 +41,7 @@ def sync_completion_state(
         state.suggestion_navigated = False
     elif inserts:
         state.suggestion_index = min(state.suggestion_index, len(inserts) - 1)
+
     return state
 
 
@@ -84,6 +87,7 @@ def command_candidates(
         if (len(parts) == 1 and trailing_space) or (len(parts) == 2 and not trailing_space):
             prefix = "" if len(parts) == 1 else parts[1]
             matches = []
+
             for index, card in enumerate(hand, start=1):
                 token = str(index)
                 if token.startswith(prefix) and _is_legal_to_play(card, current_color, top_card):
@@ -95,11 +99,13 @@ def command_candidates(
                         }
                     )
             return matches
+
         if len(parts) >= 2:
             try:
                 hand_index = int(parts[1]) - 1
             except ValueError:
                 return []
+
             if 0 <= hand_index < len(hand) and hand[hand_index].get("rank") in WILD_RANKS:
                 if (len(parts) == 2 and trailing_space) or (len(parts) == 3 and not trailing_space):
                     prefix = "" if len(parts) == 2 else parts[2].lower()
@@ -134,6 +140,7 @@ def apply_completion(
     """Resolve the next tab-completion result from the current candidate state."""
     state = sync_completion_state(state, candidates)
     inserts = state.completion_candidates
+
     if state.suggestion_navigated:
         completed = inserts[state.suggestion_index % len(inserts)]
         state.completion_index = state.suggestion_index
@@ -166,4 +173,7 @@ def command_template_candidate(template: str) -> Dict[str, str]:
     """Turn a canonical command template into insert/display suggestion data."""
     base = template.split()[0]
     insert = base + " " if base in {"/connect", "/play"} else base
-    return {"insert": insert, "display": template}
+    return {
+        "insert": insert,
+        "display": template,
+    }

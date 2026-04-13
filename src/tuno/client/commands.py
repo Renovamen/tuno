@@ -1,7 +1,40 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, List
+from typing import Any, Dict, List, Optional, Protocol
+
+from textual.widgets import Input, Static
+
+from tuno.client.actions import dispatch_command as dispatch_command_action
+from tuno.client.completion import (
+    CompletionState,
+    apply_completion,
+    command_candidates,
+    move_selection,
+    render_suggestions,
+    sync_completion_state,
+)
+from tuno.client.rendering import my_hand
+
+
+class CommandHost(Protocol):
+    """Runtime contract expected by the command controller.
+
+    The host remains the owner of transport, state snapshots, and the broader UI shell.
+    The controller only coordinates command parsing, feedback, suggestions, and dispatch.
+    """
+
+    state: Dict[str, Any]
+    player_id: Optional[str]
+    preferred_name: str
+    say_uno_next: bool
+    api: Any
+
+    async def connect(self, player_name: Optional[str] = None, url: Optional[str] = None) -> None: ...
+    async def send(self, kind: str, **payload: Any) -> None: ...
+    async def exit_client(self) -> None: ...
+    def render_state(self) -> None: ...
+    def query_one(self, selector: str, expect_type: type | None = None): ...
 
 
 class CommandError(ValueError):
@@ -32,6 +65,130 @@ VALID_PLAY_COLORS = {
 }
 
 
+class CommandController:
+    """Own command-bar parsing, completion, feedback, and dispatch orchestration."""
+
+    def __init__(self, host: CommandHost) -> None:
+        self.host = host
+        self.command_feedback_message: Optional[str] = None
+        self.completion_state = CompletionState()
+
+    async def execute(self, raw: str) -> None:
+        """Parse raw input and surface syntax errors before dispatching commands."""
+        self.clear_feedback()
+
+        try:
+            command = parse_command(raw)
+        except CommandError as exc:
+            self.set_feedback(f"Command error: {exc}. Try /help.")
+            return
+
+        await self.dispatch(command)
+
+    async def dispatch(self, command: ParsedCommand) -> None:
+        """Execute a parsed command while preserving the existing render/update hooks."""
+        previous_uno_state = self.host.say_uno_next
+
+        self.host.say_uno_next = await dispatch_command_action(
+            command,
+            preferred_name=self.host.preferred_name,
+            say_uno_next=self.host.say_uno_next,
+            state=self.host.state,
+            connect=self.host.connect,
+            send=self.host.send,
+            exit_client=self.host.exit_client,
+            set_command_feedback=self.set_feedback,
+            render_state=self.host.render_state,
+        )
+
+        if command.name == "help" or (
+            command.name == "uno" and self.host.say_uno_next != previous_uno_state
+        ):
+            self.host.render_state()
+
+    def set_feedback(self, message: str) -> None:
+        """Update the short-lived feedback shown beneath the input."""
+        self.command_feedback_message = message
+        self.host.render_state()
+
+    def clear_feedback(self) -> None:
+        """Clear any prior feedback before a new command attempt."""
+        self.command_feedback_message = None
+        self.host.render_state()
+
+    def reset_completion_state(self) -> None:
+        """Reset transient completion state after a command is submitted."""
+        self.completion_state = CompletionState()
+
+    def available_commands(self) -> List[str]:
+        """Return the currently legal command templates for the local player."""
+        return derive_available_commands(
+            self.host.state,
+            connected=self.host.api is not None,
+            joined=self.host.player_id is not None,
+            uno_armed=self.host.say_uno_next,
+        )
+
+    def candidates(self, raw: str) -> List[Dict[str, str]]:
+        """Build completion candidates for the current input and visible game state."""
+        return command_candidates(
+            raw,
+            available_commands=self.available_commands(),
+            hand=my_hand(self.host.state),
+            current_color=self.host.state.get("current_color"),
+            top_card=self.host.state.get("top_card") or None,
+        )
+
+    def render_meta(self, visible: bool, text: str) -> None:
+        """Show command feedback or contextual guidance beneath the input."""
+        meta = self.host.query_one("#command-meta", Static)
+        meta.display = visible
+        meta.update(text)
+
+    def refresh_assist(self, raw: str) -> None:
+        """Refresh the suggestion dropdown from the current input and app state."""
+        suggestions = self.host.query_one("#command-suggestions", Static)
+
+        if not raw.startswith("/"):
+            suggestions.display = False
+            suggestions.update("")
+            self.completion_state = CompletionState()
+            return
+
+        candidates = self.candidates(raw)
+        self.completion_state = sync_completion_state(self.completion_state, candidates)
+
+        suggestions.display = True
+        suggestions.update(render_suggestions(candidates, self.completion_state))
+
+    def apply_tab_completion(self) -> None:
+        """Apply the current tab-completion result to the command input widget."""
+        command_input = self.host.query_one("#command-input", Input)
+        candidates = self.candidates(command_input.value)
+        if not candidates:
+            return
+
+        completed, self.completion_state = apply_completion(
+            command_input.value,
+            self.completion_state,
+            candidates,
+        )
+        command_input.value = completed
+        command_input.cursor_position = len(completed)
+        self.refresh_assist(completed)
+
+    def move_suggestion_selection(self, delta: int) -> bool:
+        """Move the highlighted suggestion row when suggestions are visible."""
+        command_input = self.host.query_one("#command-input", Input)
+        candidates = self.candidates(command_input.value)
+        if not command_input.value.startswith("/") or not candidates:
+            return False
+
+        self.completion_state = move_selection(self.completion_state, candidates, delta)
+        self.refresh_assist(command_input.value)
+        return True
+
+
 def parse_command(raw: str) -> ParsedCommand:
     text = raw.strip()
     if not text:
@@ -48,6 +205,7 @@ def parse_command(raw: str) -> ParsedCommand:
 
     if name not in CANONICAL_COMMANDS:
         raise CommandError(f"Unknown command: /{name}")
+
     if name == "play":
         if len(args) not in {1, 2}:
             raise CommandError("Usage: /play <n> [color]")
