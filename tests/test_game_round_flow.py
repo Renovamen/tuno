@@ -140,3 +140,22 @@ class GameRoundFlowTests(unittest.TestCase):
         game.play_card(self.alice, 0, chosen_color="red", say_uno=True)
 
         self.assertIn("[bold red]WILD[/]", game.recent_events[-1])
+
+    def test_identical_consecutive_plays_still_append_two_recent_events(self) -> None:
+        """Keep both events when the same player legally plays the same card text twice in a row."""
+        game = GameState(seed=11)
+        self.alice = game.add_player("alice")
+        self.bob = game.add_player("bob")
+        game.start(self.alice)
+        game.players[0].hand = [Card("green", "reverse"), Card("green", "reverse"), Card("red", "3")]
+        game.players[1].hand = [Card("blue", "4"), Card("yellow", "6"), Card("blue", "7")]
+        game.discard_pile = [Card("green", "9")]
+        game.current_color = "green"
+        game.current_player_index = 0
+
+        game.play_card(self.alice, 0)
+        game.current_player_index = 0
+        game.play_card(self.alice, 0, say_uno=True)
+
+        self.assertEqual(game.recent_events[-1], game.recent_events[-2])
+        self.assertEqual(game.recent_events[-1].count("played"), 1)

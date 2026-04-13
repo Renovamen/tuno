@@ -332,8 +332,6 @@ class GameState:
         if card.rank == "skip":
             return 1
         if card.rank == "reverse":
-            if len(self.players) == 2:
-                return 1
             self.direction *= -1
             return 0
         if card.rank == "draw_two":
@@ -411,9 +409,7 @@ class GameState:
         return card.color == self.current_color or card.rank == top.rank
 
     def _record_event(self, message: str) -> None:
-        """Append a de-duplicated recent event capped to the latest few entries."""
-        if self.recent_events and self.recent_events[-1] == message:
-            return
+        """Append a recent event capped to the latest few entries."""
         self.recent_events.append(message)
         self.recent_events = self.recent_events[-8:]
 

@@ -103,6 +103,21 @@ class GameStateTests(unittest.TestCase):
         self.assertFalse(game.has_drawn_this_turn)
         self.assertEqual(game.current_player.player_id, bob.player_id)
 
+    def test_reverse_with_two_players_passes_turn_to_the_other_player(self) -> None:
+        """Treat reverse as a direction flip only, not a skip, in a two-player round."""
+        game = self.make_started_game()
+        alice = game.players[0]
+        bob = game.players[1]
+        alice.hand = [Card("green", "reverse"), Card("yellow", "3")]
+        bob.hand = [Card("green", "5"), Card("blue", "4")]
+        game.discard_pile = [Card("green", "9")]
+        game.current_color = "green"
+        game.current_player_index = 0
+
+        game.play_card(alice.player_id, 0)
+
+        self.assertEqual(game.current_player.player_id, bob.player_id)
+
     def test_after_drawing_only_the_new_last_card_is_playable(self) -> None:
         """Allow only the newly drawn final hand card, even when an older duplicate exists.
 
