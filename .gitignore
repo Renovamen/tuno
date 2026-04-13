@@ -1,6 +1,7 @@
 release/
 python_modules/
 .wrangler/
+.DS_Store
 
 # Coding agents
 .omx/

@@ -2,6 +2,8 @@
 
 A terminal-first UNO game.
 
+![screenshot](./assets/screenshot.png)
+
 ## Client 
 
 ### macOS / Linux
@@ -40,11 +42,16 @@ rm -rf ~/.local/share/tuno ~/.local/bin/tuno
 
 ## Server: Deploy on Cloudflare Workers
 
-Ensure [uv](https://docs.astral.sh/uv/#installation) is installed. Then:
+**Option 1:** Install [uv](https://docs.astral.sh/uv/#installation), then deploy from a local checkout:
 
 ```bash
+git clone https://github.com/Renovamen/tuno.git
+cd tuno
 uv run pywrangler deploy
 ```
+
+**Option 2:** Fork this repo and import the fork into your
+[Cloudflare dashboard](https://developers.cloudflare.com/workers/get-started/dashboard/).
 
 ## How to play
 
