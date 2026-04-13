@@ -103,7 +103,10 @@ class TunoApp(App):
     async def on_input_changed(self, event: Input.Changed) -> None:
         """Refresh suggestions whenever the command input text changes."""
         if event.input.id == "command-input":
-            self.command_controller.refresh_assist(event.value)
+            self.command_controller.refresh_assist(
+                event.value,
+                clear_feedback_on_suggestions=True,
+            )
 
     async def on_key(self, event: Key) -> None:
         """Handle tab completion and suggestion navigation while the input is focused."""
@@ -234,6 +237,7 @@ class TunoApp(App):
         kind = message.get("type")
 
         if kind == "welcome":
+            self.command_controller.clear_pending_server_response()
             self.player_id = message.get("player_id")
             self.render_state()
         elif kind == "error":
@@ -243,6 +247,7 @@ class TunoApp(App):
                 )
             )
         elif kind in ("info", "state"):
+            self.command_controller.clear_pending_server_response()
             if kind == "state":
                 self.state = message.get("state", {})
             self.render_state()

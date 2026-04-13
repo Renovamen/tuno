@@ -101,7 +101,7 @@ def render_tuno_logo() -> str:
 
 def render_command_feedback(message: Optional[str]) -> str:
     """Render the command feedback banner shown above the input box."""
-    return "" if not message else f"> {escape(message)}"
+    return "" if not message else escape(message)
 
 
 def render_local_status_body(state: Dict[str, Any]) -> str:

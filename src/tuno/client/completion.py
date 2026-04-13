@@ -129,7 +129,7 @@ def render_suggestions(candidates: Sequence[Dict[str, str]], state: CompletionSt
     for index, candidate in enumerate(candidates[:8]):
         is_selected = index == state.suggestion_index
         style = SUGGESTION_ACTIVE_STYLE if is_selected else SUGGESTION_DEFAULT_STYLE
-        prefix = "> " if is_selected else "  "
+        prefix = "❯ " if is_selected else "  "
         lines.append(f"[{style}]{prefix}{candidate['display']}[/]")
     return "\n".join(lines)
 

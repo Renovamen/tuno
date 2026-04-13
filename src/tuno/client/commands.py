@@ -71,6 +71,7 @@ class CommandController:
     def __init__(self, host: CommandHost) -> None:
         self.host = host
         self.command_feedback_message: Optional[str] = None
+        self.awaiting_server_response = False
         self.completion_state = CompletionState()
 
     async def execute(self, raw: str) -> None:
@@ -88,6 +89,8 @@ class CommandController:
     async def dispatch(self, command: ParsedCommand) -> None:
         """Execute a parsed command while preserving the existing render/update hooks."""
         previous_uno_state = self.host.say_uno_next
+        if command.name not in {"help", "exit"}:
+            self.set_pending_server_response()
 
         self.host.say_uno_next = await dispatch_command_action(
             command,
@@ -108,17 +111,31 @@ class CommandController:
 
     def set_feedback(self, message: str) -> None:
         """Update the short-lived feedback shown beneath the input."""
+        self.awaiting_server_response = False
         self.command_feedback_message = message
         self.host.render_state()
 
     def clear_feedback(self) -> None:
         """Clear any prior feedback before a new command attempt."""
+        self.awaiting_server_response = False
         self.command_feedback_message = None
         self.host.render_state()
+
+    def clear_pending_server_response(self) -> None:
+        """Clear the pending-response hint when the next server message arrives."""
+        if self.awaiting_server_response:
+            self.awaiting_server_response = False
+            self.command_feedback_message = None
 
     def reset_completion_state(self) -> None:
         """Reset transient completion state after a command is submitted."""
         self.completion_state = CompletionState()
+
+    def set_pending_server_response(self) -> None:
+        """Show a waiting hint after a valid command is sent to the server."""
+        self.awaiting_server_response = True
+        self.command_feedback_message = "Waiting for server response..."
+        self.host.render_state()
 
     def available_commands(self) -> List[str]:
         """Return the currently legal command templates for the local player."""
@@ -145,8 +162,15 @@ class CommandController:
         meta.display = visible
         meta.update(text)
 
-    def refresh_assist(self, raw: str) -> None:
-        """Refresh the suggestion dropdown from the current input and app state."""
+    def refresh_assist(self, raw: str, *, clear_feedback_on_suggestions: bool = False) -> None:
+        """Refresh the suggestion dropdown from the current input and app state.
+
+        Args:
+            raw: The current command-bar contents to evaluate for slash-command suggestions.
+            clear_feedback_on_suggestions: Set to ``True`` when showing fresh
+                completion suggestions should clear any existing feedback message,
+                such as a prior command error.
+        """
         suggestions = self.host.query_one("#command-suggestions", Static)
 
         if not raw.startswith("/"):
@@ -157,6 +181,12 @@ class CommandController:
 
         candidates = self.candidates(raw)
         self.completion_state = sync_completion_state(self.completion_state, candidates)
+        if clear_feedback_on_suggestions and candidates and self.command_feedback_message is not None:
+            self.command_feedback_message = None
+            self.render_meta(
+                self.host.player_id is None,
+                "Join the game: /connect <name>" if self.host.player_id is None else "",
+            )
 
         suggestions.display = True
         suggestions.update(render_suggestions(candidates, self.completion_state))

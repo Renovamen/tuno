@@ -27,11 +27,13 @@ class ClientCommandBarTests(ClientAppHarness):
         app = TunoApp(self.url, initial_name="alice")
         guest = ClientAPI(self.url)
         async with app.run_test() as pilot:
+            # 1. Invalid command before connect should surface parser feedback.
             await app.execute_command("/play")
             feedback_text = str(app.query_one("#command-meta", Static).renderable)
             self.assertIn("Command error:", feedback_text)
             self.assertIn("Try /help", feedback_text)
 
+            # 2. Connect, join a guest, and enter an active round for play validation.
             await app.execute_command("/connect")
             await self.wait_until(lambda: app.player_id is not None, pilot, message="host join")
 
@@ -61,11 +63,13 @@ class ClientCommandBarTests(ClientAppHarness):
                 message="illegal play sync",
             )
 
+            # 3. Reject a numbered card that does not match color or rank.
             await app.execute_command("/play 1")
             feedback_text = str(app.query_one("#command-meta", Static).renderable)
             self.assertIn("Illegal play:", feedback_text)
             self.assertIn("does not match current color", feedback_text)
 
+            # 4. Reject a wild card play that omits the required chosen color.
             await app.execute_command("/play 2")
             feedback_text = str(app.query_one("#command-meta", Static).renderable)
             self.assertIn("wild cards require a color", feedback_text.lower())
@@ -89,6 +93,7 @@ class ClientCommandBarTests(ClientAppHarness):
             command_input = app.query_one("#command-input")
             suggestions = app.query_one("#command-suggestions", Static)
 
+            # 1. Pre-join suggestions start with connect/help candidates from a bare slash.
             self.assertFalse(suggestions.display)
             command_input.value = "/"
             await pilot.pause(0.05)
@@ -98,6 +103,7 @@ class ClientCommandBarTests(ClientAppHarness):
             await pilot.press("tab")
             self.assertEqual(command_input.value, "/help")
 
+            # 2. Partial `/st` input should not autocomplete into `/start` before joining.
             command_input.value = "/"
             await pilot.pause(0.05)
             self.assertIn("/connect <name>", str(suggestions.renderable))
@@ -107,6 +113,7 @@ class ClientCommandBarTests(ClientAppHarness):
             await pilot.press("tab")
             self.assertEqual(command_input.value, "/st")
 
+            # 3. After host+guest reach the lobby, `/start` becomes the primary suggestion.
             await app.execute_command("/connect")
             await self.wait_until(lambda: app.player_id is not None, pilot, message="host join")
 
@@ -119,6 +126,7 @@ class ClientCommandBarTests(ClientAppHarness):
             self.assertIn("/start", str(suggestions.renderable))
             self.assertNotIn("/play <n> [color]", str(suggestions.renderable))
 
+            # 4. Once the round starts, `/play` suggestions are derived from the visible hand.
             await app.execute_command("/start")
             await self.wait_until(
                 lambda: app.state.get("started") is True, pilot, message="game start"
@@ -143,23 +151,27 @@ class ClientCommandBarTests(ClientAppHarness):
                 message="suggestion scenario sync",
             )
 
+            # 5. Tab completion should expand `/pl` into the full `/play` template.
             command_input.value = "/pl"
             await pilot.pause(0.05)
             self.assertIn("/play <n> [color]", str(suggestions.renderable))
             await pilot.press("tab")
             self.assertEqual(command_input.value, "/play ")
 
+            # 6. With `/play `, only legal hand candidates should be suggested.
             command_input.value = "/play "
             await pilot.pause(0.05)
             self.assertIn("/play 1 <color> — WILD", str(suggestions.renderable))
             self.assertNotIn("/play 2 — G:1", str(suggestions.renderable))
 
+            # 7. Tab completion should advance from the play template to the selected card slot.
             command_input.value = "/play "
             await pilot.pause(0.05)
             self.assertIn("/play 1 <color> — WILD", str(suggestions.renderable))
             await pilot.press("tab")
             self.assertEqual(command_input.value, "/play 1 ")
 
+            # 8. Wild-card color completion should finish `/play 1 r` as `/play 1 red`.
             command_input.value = "/play 1 r"
             await pilot.pause(0.05)
             self.assertIn("/play 1 red", str(suggestions.renderable))
@@ -181,6 +193,7 @@ class ClientCommandBarTests(ClientAppHarness):
         guest = ClientAPI(self.url)
         app.exit = Mock()
         async with app.run_test() as pilot:
+            # 1. Join and start a real session so `/exit` exercises the full leave path.
             await app.execute_command("/connect")
             await self.wait_until(lambda: app.player_id is not None, pilot, message="host join")
 
@@ -190,12 +203,17 @@ class ClientCommandBarTests(ClientAppHarness):
                 lambda: app.state.get("started") is True, pilot, message="game start"
             )
 
+            # 2. `/exit` should drop local transport state immediately.
             await app.execute_command("/exit")
             await self.wait_until(lambda: app.api is None, pilot, message="client close")
+
+            # 3. The server should observe the leave and collapse to the remaining player.
             await self.wait_until(
                 lambda: len(self.session.state.players) == 1, pilot, message="server leave"
             )
             self.assertTrue(self.session.state.finished)
+
+            # 4. The Textual app should request shutdown exactly once.
             app.exit.assert_called_once_with()
 
         if guest.websocket is not None:

@@ -76,4 +76,4 @@ class ClientCompletionTests(unittest.TestCase):
             "/", available_commands=["/connect <name>", "/help"], hand=[]
         )
         markup = render_suggestions(candidates, CompletionState(suggestion_index=1))
-        self.assertIn("[bold #7aa2f7]> /help[/]", markup)
+        self.assertIn("[bold #7aa2f7]❯ /help[/]", markup)

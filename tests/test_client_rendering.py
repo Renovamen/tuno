@@ -13,7 +13,7 @@ class ClientRenderingTests(unittest.TestCase):
 
     def test_command_feedback_escapes_markup(self) -> None:
         """Escape Rich markup so feedback text cannot spoof the UI."""
-        self.assertEqual(render_command_feedback("[bold]boom[/]"), r"> \[bold]boom\[/]")
+        self.assertEqual(render_command_feedback("[bold]boom[/]"), r"\[bold]boom\[/]")
 
     def test_command_feedback_is_empty_without_a_message(self) -> None:
         """Return an empty renderable when there is no feedback to display."""
