@@ -30,7 +30,9 @@ class CommandHost(Protocol):
     say_uno_next: bool
     api: Any
 
-    async def connect(self, player_name: Optional[str] = None, url: Optional[str] = None) -> None: ...
+    async def connect(
+        self, player_name: Optional[str] = None, url: Optional[str] = None
+    ) -> None: ...
     async def send(self, kind: str, **payload: Any) -> None: ...
     async def exit_client(self) -> None: ...
     def render_state(self) -> None: ...
@@ -181,7 +183,11 @@ class CommandController:
 
         candidates = self.candidates(raw)
         self.completion_state = sync_completion_state(self.completion_state, candidates)
-        if clear_feedback_on_suggestions and candidates and self.command_feedback_message is not None:
+        if (
+            clear_feedback_on_suggestions
+            and candidates
+            and self.command_feedback_message is not None
+        ):
             self.command_feedback_message = None
             self.render_meta(
                 self.host.player_id is None,

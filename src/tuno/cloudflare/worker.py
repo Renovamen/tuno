@@ -191,6 +191,7 @@ class TunoGame(DurableObject):
     def _deserialize_game(self, payload: dict) -> GameState:
         """Rebuild a GameState from a payload previously stored in Durable Object storage."""
         game = GameState(seed=payload["seed"])
+
         game.players = [
             PlayerState(
                 player_id=player["player_id"],

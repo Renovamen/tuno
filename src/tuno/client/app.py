@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import contextlib
+import os
 from typing import Any, Dict, Optional
 
 from textual.app import App, ComposeResult
@@ -16,6 +17,11 @@ from tuno.client.api import ClientAPI
 from tuno.client.commands import CommandController
 from tuno.client.rendering import format_server_error, render_tuno_logo
 from tuno.client.theme import activate_tuno_theme
+from tuno.client.updates import (
+    build_update_notice,
+    fetch_latest_release_version,
+    is_newer_version,
+)
 from tuno.client.view_state import build_view_state
 
 
@@ -38,9 +44,12 @@ class TunoApp(App):
 
         self.listener_task: Optional[asyncio.Task] = None
         self.shutdown_task: Optional[asyncio.Task] = None
+        self.update_check_task: Optional[asyncio.Task] = None
 
         self.api: Optional[ClientAPI] = None
         self.command_controller = CommandController(self)
+        self.update_notice_text = ""
+        self._check_for_updates_enabled = os.environ.get("TUNO_DISABLE_UPDATE_CHECK") != "1"
 
     def compose(self) -> ComposeResult:
         """Compose the static widget tree for the command-first client layout."""
@@ -83,8 +92,11 @@ class TunoApp(App):
         with Container(id="command-zone"):
             with Container(id="command-input-shell"):
                 yield Input(placeholder="/connect alice", id="command-input")
+
             yield Static("", id="command-meta")
             yield Static("", id="command-suggestions")
+
+            yield Static("", id="update-notice")
 
     async def on_mount(self) -> None:
         """Focus the command input and render the initial empty state."""
@@ -98,7 +110,21 @@ class TunoApp(App):
             self._app_version = "0.1.1"
 
         self.query_one("#command-input", Input).focus()
+
+        if self._check_for_updates_enabled:
+            self.update_check_task = asyncio.create_task(self._check_for_updates())
+
         self.render_state()
+
+    async def _check_for_updates(self) -> None:
+        """Fetch the latest release version without blocking initial TUI startup."""
+        try:
+            latest = await asyncio.to_thread(fetch_latest_release_version)
+        except Exception:  # pragma: no cover - network failures are intentionally silent
+            return
+        if latest and is_newer_version(latest, self._app_version):
+            self.update_notice_text = build_update_notice(latest)
+            self.render_state()
 
     async def on_input_changed(self, event: Input.Changed) -> None:
         """Refresh suggestions whenever the command input text changes."""
@@ -320,6 +346,11 @@ class TunoApp(App):
         command_input = self.query_one("#command-input", Input)
         command_input.placeholder = view_state.input_placeholder
         self.command_controller.refresh_assist(command_input.value)
+
+        # Check and notify about updates if needed
+        update_notice = self.query_one("#update-notice", Static)
+        update_notice.display = bool(self.update_notice_text)
+        update_notice.update(self.update_notice_text)
 
 
 def build_parser() -> argparse.ArgumentParser:

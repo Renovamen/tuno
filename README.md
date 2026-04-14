@@ -11,7 +11,7 @@ A terminal-first UNO game.
 #### Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Renovamen/tuno/refs/heads/main/scripts/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/Renovamen/tuno/HEAD/scripts/install.sh | sh
 ```
 
 The install script puts `tuno` in `~/.local/bin`. If it's not on your `PATH`, add it:
@@ -24,11 +24,11 @@ export PATH="$HOME/.local/bin:$PATH"
 <summary>Make the change permanent</summary>
 
 ```bash
-# zsh
+# For zsh
 echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
 source ~/.zshrc
 
-# bash
+# For bash
 echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
 source ~/.bashrc
 ```

@@ -17,6 +17,7 @@ async def handler(websocket, session: GameSession) -> None:
     accepted = await session.attach(websocket)
     if not accepted:
         return
+
     try:
         async for raw in websocket:
             try:

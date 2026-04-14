@@ -147,7 +147,11 @@ class GameRoundFlowTests(unittest.TestCase):
         self.alice = game.add_player("alice")
         self.bob = game.add_player("bob")
         game.start(self.alice)
-        game.players[0].hand = [Card("green", "reverse"), Card("green", "reverse"), Card("red", "3")]
+        game.players[0].hand = [
+            Card("green", "reverse"),
+            Card("green", "reverse"),
+            Card("red", "3"),
+        ]
         game.players[1].hand = [Card("blue", "4"), Card("yellow", "6"), Card("blue", "7")]
         game.discard_pile = [Card("green", "9")]
         game.current_color = "green"

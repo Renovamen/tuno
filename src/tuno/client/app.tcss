@@ -100,6 +100,13 @@ Screen {
     margin: 0;
 }
 
+#update-notice {
+    height: auto;
+    color: $accent;
+    margin: 1 0 0 0;
+    text-align: right;
+}
+
 #command-input-shell {
     height: auto;
     min-height: 1;

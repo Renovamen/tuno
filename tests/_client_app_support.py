@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import os
 import socket
 import sys
 import unittest
@@ -12,6 +13,8 @@ from rich.console import Console, RenderableType
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
+# Disable the background GitHub version check so UI tests stay deterministic and offline.
+os.environ.setdefault("TUNO_DISABLE_UPDATE_CHECK", "1")
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
