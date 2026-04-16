@@ -17,6 +17,7 @@ CARD_COLORS = {
 
 _LOBBY_EVENT_SUBSTRINGS = ("joined the lobby", "left the lobby")
 _UNO_ARMED_SUFFIX = "armed UNO."
+_ROUND_WIN_SUFFIX = "wins the round!"
 
 
 def role_label(state: Dict[str, Any]) -> str:
@@ -65,6 +66,8 @@ def recent_activity_markup(event: str) -> str:
     """Add light presentation formatting to recent activity without changing semantics."""
     rendered = event
     if rendered.endswith(_UNO_ARMED_SUFFIX):
+        rendered = f"[bold]{rendered}[/]"
+    elif rendered.endswith(_ROUND_WIN_SUFFIX):
         rendered = f"[bold]{rendered}[/]"
     return rendered
 
@@ -160,7 +163,7 @@ def render_recent_activity_body(state: Dict[str, Any]) -> str:
     events = state.get("recent_events") or []
 
     game_events = [str(e) for e in events if not any(kw in e for kw in _LOBBY_EVENT_SUBSTRINGS)]
-    recent = [recent_activity_markup(event) for event in game_events[-6:][::-1]]
+    recent = [recent_activity_markup(event) for event in game_events[-20:][::-1]]
     recent_lines = recent or ["No game events yet."]
     return "\n".join(recent_lines)
 

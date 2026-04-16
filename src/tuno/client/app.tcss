@@ -10,7 +10,7 @@ Screen {
 }
 
 #main-frame {
-    height: 22;
+    height: 20;
     border: round $accent;
     border-title-color: $accent;
     border-title-style: bold;
@@ -45,6 +45,16 @@ Screen {
 #right-panel-sections {
     width: 1fr;
     height: 1fr;
+}
+
+#recent-activity-section {
+    height: 1fr;
+}
+
+#recent-activity-scroll {
+    height: 1fr;
+    background: ansi_default;
+    scrollbar-size: 0 0;
 }
 
 #tuno-logo {
@@ -94,7 +104,7 @@ Screen {
 }
 
 #command-suggestions {
-    height: auto;
+    height: 4;
     background: ansi_default;
     padding: 0;
     margin: 0;

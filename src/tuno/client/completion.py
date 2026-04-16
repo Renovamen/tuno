@@ -11,6 +11,7 @@ from tuno.core.cards import WILD_RANKS
 SUGGESTION_ACTIVE_STYLE = "bold #7aa2f7"
 SUGGESTION_DEFAULT_STYLE = "white"
 SUGGESTION_EMPTY_STYLE = "dim"
+MAX_VISIBLE_SUGGESTIONS = 4
 
 
 @dataclass
@@ -125,12 +126,23 @@ def render_suggestions(candidates: Sequence[Dict[str, str]], state: CompletionSt
     if not candidates:
         return f"[{SUGGESTION_EMPTY_STYLE}]  (No suggestions)[/]"
 
+    start = 0
+    if len(candidates) > MAX_VISIBLE_SUGGESTIONS:
+        start = min(
+            max(state.suggestion_index - (MAX_VISIBLE_SUGGESTIONS - 1), 0),
+            len(candidates) - MAX_VISIBLE_SUGGESTIONS,
+        )
+
     lines = []
-    for index, candidate in enumerate(candidates[:8]):
+    visible = candidates[start : start + MAX_VISIBLE_SUGGESTIONS]
+
+    for offset, candidate in enumerate(visible):
+        index = start + offset
         is_selected = index == state.suggestion_index
         style = SUGGESTION_ACTIVE_STYLE if is_selected else SUGGESTION_DEFAULT_STYLE
         prefix = "❯ " if is_selected else "  "
         lines.append(f"[{style}]{prefix}{candidate['display']}[/]")
+
     return "\n".join(lines)
 
 

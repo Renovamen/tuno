@@ -69,7 +69,9 @@ class TunoApp(App):
 
                     with Vertical(id="hand-section"):
                         yield Static(
-                            "Hand (scroll for more)", id="hand-title", classes="section-title"
+                            "Hand (scroll for more)",
+                            id="hand-title",
+                            classes="section-title",
                         )
                         yield Static("", classes="section-divider")
                         with VerticalScroll(id="hand-scroll"):
@@ -83,13 +85,19 @@ class TunoApp(App):
 
                         yield Static("", classes="section-gap")
 
-                        yield Static(
-                            "Recent Activity", id="recent-activity-title", classes="section-title"
-                        )
-                        yield Static("", classes="section-divider")
-                        yield Static("", id="recent-top-card-body")
-                        yield Static("", id="recent-top-card-divider", classes="section-divider")
-                        yield Static("No game events yet.", id="recent-activity-body")
+                        with Vertical(id="recent-activity-section"):
+                            yield Static(
+                                "Recent Activity (scroll for more)",
+                                id="recent-activity-title",
+                                classes="section-title",
+                            )
+                            yield Static("", classes="section-divider")
+                            yield Static("", id="recent-top-card-body")
+                            yield Static(
+                                "", id="recent-top-card-divider", classes="section-divider"
+                            )
+                            with VerticalScroll(id="recent-activity-scroll"):
+                                yield Static("No game events yet.", id="recent-activity-body")
 
         with Container(id="command-zone"):
             with Container(id="command-input-shell"):
