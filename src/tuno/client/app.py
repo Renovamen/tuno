@@ -6,6 +6,7 @@ import argparse
 import asyncio
 import contextlib
 import os
+import sys
 from typing import Any, Dict, Optional
 
 from textual.app import App, ComposeResult
@@ -21,6 +22,7 @@ from tuno.client.updates import (
     build_update_notice,
     fetch_latest_release_version,
     is_newer_version,
+    perform_self_update,
 )
 from tuno.client.view_state import build_view_state
 
@@ -122,6 +124,7 @@ class TunoApp(App):
             latest = await asyncio.to_thread(fetch_latest_release_version)
         except Exception:  # pragma: no cover - network failures are intentionally silent
             return
+
         if latest and is_newer_version(latest, self._app_version):
             self.update_notice_text = build_update_notice(latest)
             self.render_state()
@@ -366,7 +369,19 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def build_update_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="Update the installed tuno client.")
+    return parser
+
+
 def main() -> None:
+    if len(sys.argv) > 1 and sys.argv[1] == "update":
+        from tuno import __version__
+
+        build_update_parser().parse_args(sys.argv[2:])
+        perform_self_update(__version__)
+        return
+
     parser = build_parser()
     args = parser.parse_args()
     initial_server = args.server_flag or args.server or "ws://127.0.0.1:8765"

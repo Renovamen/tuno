@@ -45,8 +45,10 @@ def card_markup(card: Dict[str, Any], *, prefer_short: bool = False) -> str:
     color = card.get("color")
     label = card.get("short") if prefer_short else card.get("label")
     label = label or card.get("label") or card.get("short") or "Card"
+
     if color in CARD_COLORS:
         return f"[bold {CARD_COLORS[color]}]{escape(str(label))}[/]"
+
     return f"[bold magenta]{escape(str(label))}[/]"
 
 
@@ -55,6 +57,7 @@ def top_card_markup(card: Dict[str, Any], current_color: Optional[str]) -> str:
     display_card = dict(card)
     if display_card.get("rank") in {"wild", "wild_draw_four"} and current_color in CARD_COLORS:
         display_card["color"] = current_color
+
     return card_markup(display_card, prefer_short=True)
 
 
@@ -71,6 +74,7 @@ def player_table(state: Dict[str, Any]) -> RenderableType:
     players = state.get("players", [])
     if not players:
         return "No players yet."
+
     table = Table(
         box=None,
         padding=(0, 2, 0, 0),
@@ -81,12 +85,14 @@ def player_table(state: Dict[str, Any]) -> RenderableType:
     table.add_column("")
     table.add_column("Name")
     table.add_column("#Cards")
+
     for player in players:
         prefix = "❯" if player.get("player_id") == state.get("current_player_id") else " "
         name = escape(str(player["name"]))
         host = " [host]" if player.get("player_id") == state.get("host_player_id") else ""
         me = " (you)" if player.get("player_id") == state.get("your_player_id") else ""
         table.add_row(prefix, f"{name}{host}{me}", str(player["card_count"]))
+
     return table
 
 
@@ -121,10 +127,13 @@ def render_hand_body(state: Dict[str, Any], *, say_uno_next: bool) -> str:
     """Render the hand section body."""
     hand = my_hand(state)
     hand_lines: List[str] = []
+
     for index, card in enumerate(hand, start=1):
         hand_lines.append(f"[{index:02d}] {card_markup(card, prefer_short=True)}")
+
     if not hand:
         hand_lines.append("(empty)")
+
     return "\n".join(hand_lines)
 
 

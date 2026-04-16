@@ -6,7 +6,10 @@ python_modules/
 # Coding agents
 .omx/
 .codex/
+.agents/
+.claude/
 AGENTS.md
+skills-lock.json
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
