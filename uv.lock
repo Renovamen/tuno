@@ -385,7 +385,6 @@ wheels = [
 
 [[package]]
 name = "tuno"
-version = "0.1.1"
 source = { editable = "." }
 dependencies = [
     { name = "certifi" },
