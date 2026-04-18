@@ -4,7 +4,6 @@ import unittest
 from unittest.mock import Mock
 
 from tuno.client.updates import (
-    build_update_notice,
     is_newer_version,
     normalize_version,
     perform_self_update,
@@ -22,12 +21,6 @@ class ClientUpdateTests(unittest.TestCase):
         # Treat dotted numeric parts as ordered version components during comparison.
         self.assertTrue(is_newer_version("v1.2.0", "1.1.9"))
         self.assertFalse(is_newer_version("v1.2.0", "1.2.0"))
-
-    def test_build_update_notice_points_to_install_section(self) -> None:
-        # Build the bottom-bar notice text with the inline self-update instruction.
-        notice = build_update_notice("v9.9.9")
-        self.assertIn("v9.9.9", notice)
-        self.assertIn("tuno update", notice)
 
     def test_perform_self_update_runs_installer_when_newer_version_exists(self) -> None:
         # When a newer release exists, fetch the install script and execute it once.

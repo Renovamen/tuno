@@ -3,6 +3,7 @@
     "version": "0.1.1",
     "private": true,
     "scripts": {
+        "bump": "uv run python scripts/bump_version.py",
         "deploy": "uv run pywrangler deploy",
         "dev": "uv run pywrangler dev",
         "start": "uv run pywrangler dev"

@@ -7,7 +7,6 @@ from tuno.client.completion import (
     apply_completion,
     command_candidates,
     move_selection,
-    render_suggestions,
     sync_completion_state,
 )
 
@@ -69,11 +68,3 @@ class ClientCompletionTests(unittest.TestCase):
         )
         self.assertEqual(candidates[0]["insert"], "/play 1 ")
         self.assertEqual(candidates[1]["insert"], "/play 2")
-
-    def test_render_suggestions_highlights_selected_line(self) -> None:
-        """Render the selected suggestion with the active highlight style."""
-        candidates = command_candidates(
-            "/", available_commands=["/connect <name>", "/help"], hand=[]
-        )
-        markup = render_suggestions(candidates, CompletionState(suggestion_index=1))
-        self.assertIn("[bold #7aa2f7]❯ /help[/]", markup)

@@ -9,6 +9,7 @@ import os
 import sys
 from typing import Any, Dict, Optional
 
+from tuno import __version__
 from textual.app import App, ComposeResult
 from textual.containers import Container, Grid, Vertical, VerticalScroll
 from textual.events import Key
@@ -117,7 +118,7 @@ class TunoApp(App):
         try:
             self._app_version = pkg_version("tuno")
         except Exception:
-            self._app_version = "0.1.1"
+            self._app_version = __version__
 
         self.query_one("#command-input", Input).focus()
 
@@ -384,8 +385,6 @@ def build_update_parser() -> argparse.ArgumentParser:
 
 def main() -> None:
     if len(sys.argv) > 1 and sys.argv[1] == "update":
-        from tuno import __version__
-
         build_update_parser().parse_args(sys.argv[2:])
         perform_self_update(__version__)
         return

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tuno"
-version = "0.1.1"
+dynamic = ["version"]
 description = "A terminal-first UNO game."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -32,6 +32,9 @@ tuno-server = "tuno.server.local:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
+
+[tool.setuptools.dynamic]
+version = {attr = "tuno.__version__"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
