@@ -99,30 +99,22 @@ Verify the generated command:
 &nbsp;
 ## Install a Local Release Asset
 
-```bash
-./scripts/install-local.sh release/tuno-macos-arm64.tar.gz
-```
-
-If no path is provided, the script picks the default package for the current macOS arch:
+This script picks the default package for your current arch:
 
 ```bash
 ./scripts/install-local.sh
+```
+
+You can also provide a specific release path:
+
+```bash
+./scripts/install-local.sh release/tuno-macos-arm64.tar.gz
 ```
 
 Verify the installed wrapper:
 
 ```bash
 tuno --help
-```
-
-To avoid touching your normal install paths during testing:
-
-```bash
-TUNO_INSTALL_DIR=/tmp/tuno-install-bin \
-TUNO_APP_DIR=/tmp/tuno-install-app \
-./scripts/install-local.sh release/tuno-macos-arm64.tar.gz
-
-/tmp/tuno-install-bin/tuno --help
 ```
 
 &nbsp;

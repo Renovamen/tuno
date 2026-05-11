@@ -14,25 +14,7 @@ A terminal-first UNO game.
 curl -fsSL https://raw.githubusercontent.com/Renovamen/tuno/HEAD/scripts/install.sh | sh
 ```
 
-The install script puts `tuno` in `~/.local/bin`. If it's not on your `PATH`, add it:
-
-```bash
-export PATH="$HOME/.local/bin:$PATH"
-```
-
-<details>
-<summary>Make the change permanent</summary>
-
-```bash
-# For zsh
-echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
-source ~/.zshrc
-
-# For bash
-echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
-source ~/.bashrc
-```
-</details>
+The install script puts Tuno in `~/.local/bin` and adds it to your `PATH`.
 
 #### Update
 
@@ -75,7 +57,7 @@ uv run pywrangler deploy
 &nbsp;
 ## How to play
 
-Start the client app:
+Start Tuno client app:
 
 ```bash
 tuno
@@ -83,7 +65,7 @@ tuno
 
 ### Commands
 
-Note: You can always type `Tab` to autocomplete the current command.
+**Note:** You can always type `Tab` to autocomplete the current command.
 
 - `/server <server>`: Connect to a server.
 - `/server`: Show and select saved servers.
