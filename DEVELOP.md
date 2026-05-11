@@ -25,6 +25,7 @@ For client binary builds, install the build extra:
 python -m pip install -e ".[build]"
 ```
 
+&nbsp;
 ## Run Locally
 
 Start the server:
@@ -45,6 +46,7 @@ Then connect from inside the TUI:
 /server ws://127.0.0.1:8765
 ```
 
+&nbsp;
 ## Cloudflare Workers
 
 Local development:
@@ -63,6 +65,7 @@ The Worker supports an optional `?game=<name>` query parameter. If omitted, it u
 
 If you change the Durable Object class name or add more Durable Objects later, update the `durable_objects.bindings` and `migrations` sections in [`wrangler.jsonc`](wrangler.jsonc) before deploying.
 
+&nbsp;
 ## Tests
 
 ```bash
@@ -71,12 +74,14 @@ python -m ruff check .
 python -m ruff format --check .
 ```
 
+&nbsp;
 ## Lint
 
 ```bash
 python -m ruff format .
 ```
 
+&nbsp;
 ## Build Client Binary
 
 ```bash
@@ -91,6 +96,7 @@ Verify the generated command:
 ./dist/tuno/tuno --help
 ```
 
+&nbsp;
 ## Install a Local Release Asset
 
 ```bash
@@ -119,6 +125,7 @@ TUNO_APP_DIR=/tmp/tuno-install-app \
 /tmp/tuno-install-bin/tuno --help
 ```
 
+&nbsp;
 ## Release Workflow
 
 The GitHub Actions workflow in `.github/workflows/release-client.yml` builds client-only release assets for:

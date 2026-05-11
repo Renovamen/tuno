@@ -34,12 +34,21 @@ source ~/.bashrc
 ```
 </details>
 
-#### Uninstall:
+#### Update
+
+Tuno can update itself if a new version is available:
+
+```bash
+tuno update
+```
+
+#### Uninstall
 
 ```bash
 rm -rf ~/.local/share/tuno ~/.local/bin/tuno ~/.config/tuno
 ```
 
+&nbsp;
 ## Server
 
 Here is a hosted server you can try:
@@ -63,6 +72,7 @@ uv run pywrangler deploy
 **Option 2:** Fork this repo and import the fork into your
 [Cloudflare dashboard](https://developers.cloudflare.com/workers/get-started/dashboard/).
 
+&nbsp;
 ## How to play
 
 Start the client app:
@@ -94,6 +104,7 @@ Note: You can always type `Tab` to autocomplete the current command.
 - A drawn card is immediately playable if it is valid.
 - `Wild +4` is rejected if the player still has a non-wild card matching the current color.
 
+&nbsp;
 ## Todo
 
 - [ ] Multiple game rooms
@@ -101,6 +112,7 @@ Note: You can always type `Tab` to autocomplete the current command.
 - [ ] More players
 - [ ] Chat
 
+&nbsp;
 ## Development
 
 Check [DEVELOP.md](DEVELOP.md) for development instructions.
