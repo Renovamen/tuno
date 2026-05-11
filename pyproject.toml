@@ -12,6 +12,7 @@ dependencies = [
     "textual>=0.76,<1.0",
     "websockets>=12,<16",
     "certifi>=2024.0.0",
+    "PyYAML>=6.0.2,<7",
 ]
 
 [project.optional-dependencies]

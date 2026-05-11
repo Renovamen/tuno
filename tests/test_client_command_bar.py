@@ -20,11 +20,11 @@ class ClientCommandBarTests(ClientAppHarness):
         Flow:
         1. Submit an invalid slash command before connecting.
         2. Verify parser feedback is surfaced to the user.
-        3. Connect, join a second player, and start a round.
+        3. Connect to the server, join as host, add a guest, and start a round.
         4. Seed a hand where one numbered card is illegal and one wild card lacks a color.
         5. Verify both local validation failures produce clear feedback.
         """
-        app = TunoApp(self.url, initial_name="alice")
+        app = TunoApp(initial_name="alice")
         guest = ClientAPI(self.url)
         async with app.run_test() as pilot:
             # 1. Invalid command before connect should surface parser feedback.
@@ -33,7 +33,9 @@ class ClientCommandBarTests(ClientAppHarness):
             self.assertIn("Command error:", feedback_text)
             self.assertIn("Try /help", feedback_text)
 
-            # 2. Connect, join a guest, and enter an active round for play validation.
+            # 2. Open the server connection, join as host, then add a guest.
+            await app.execute_command(f"/server {self.url}")
+            await self.wait_until(lambda: app.api is not None, pilot, message="server connect")
             await app.execute_command("/connect")
             await self.wait_until(lambda: app.player_id is not None, pilot, message="host join")
 
@@ -80,24 +82,24 @@ class ClientCommandBarTests(ClientAppHarness):
         """Verify command suggestions evolve with app state and support keyboard completion.
 
         Flow:
-        1. Start in the pre-join state and verify `/connect` suggestions appear from `/`.
+        1. Start disconnected and verify `/server` suggestions appear from `/`.
         2. Use arrow keys and Tab to move the selection and complete `/help`.
-        3. Connect as host, join a second player, and verify `/start` appears in the lobby.
+        3. Connect to the server, join as host, add a guest, and verify `/start`.
         4. Start a round and seed a wild-card hand for the local player.
         5. Verify `/play` suggestions derive from the current hand and support progressive
            Tab completion through command, card number, and wild color.
         """
-        app = TunoApp(self.url, initial_name="alice")
+        app = TunoApp(initial_name="alice")
         guest = ClientAPI(self.url)
         async with app.run_test() as pilot:
             command_input = app.query_one("#command-input")
             suggestions = app.query_one("#command-suggestions", Static)
 
-            # 1. Pre-join suggestions start with connect/help candidates from a bare slash.
+            # 1. Disconnected suggestions start with server/help candidates from a bare slash.
             self.assertFalse(suggestions.display)
             command_input.value = "/"
             await pilot.pause(0.05)
-            self.assertIn("/connect <name>", str(suggestions.renderable))
+            self.assertIn("/server <server>", str(suggestions.renderable))
             await pilot.press("down")
             self.assertIn("/help", str(suggestions.renderable))
             await pilot.press("tab")
@@ -106,14 +108,16 @@ class ClientCommandBarTests(ClientAppHarness):
             # 2. Partial `/st` input should not autocomplete into `/start` before joining.
             command_input.value = "/"
             await pilot.pause(0.05)
-            self.assertIn("/connect <name>", str(suggestions.renderable))
+            self.assertIn("/server <server>", str(suggestions.renderable))
             command_input.value = "/st"
             await pilot.pause(0.05)
             self.assertNotIn("/start", str(suggestions.renderable))
             await pilot.press("tab")
             self.assertEqual(command_input.value, "/st")
 
-            # 3. After host+guest reach the lobby, `/start` becomes the primary suggestion.
+            # 3. After server connect plus host+guest lobby join, `/start` is suggested.
+            await app.execute_command(f"/server {self.url}")
+            await self.wait_until(lambda: app.api is not None, pilot, message="server connect")
             await app.execute_command("/connect")
             await self.wait_until(lambda: app.player_id is not None, pilot, message="host join")
 
@@ -184,16 +188,18 @@ class ClientCommandBarTests(ClientAppHarness):
         """Ensure `/exit` performs the full shutdown path for both client and server state.
 
         Flow:
-        1. Join a real session and start a round.
+        1. Connect to a real server session, join as host, and start a round.
         2. Invoke `/exit`.
         3. Verify the client transport is closed and the app exit hook is called once.
         4. Verify the authoritative server session observes the player leaving the game.
         """
-        app = TunoApp(self.url, initial_name="alice")
+        app = TunoApp(initial_name="alice")
         guest = ClientAPI(self.url)
         app.exit = Mock()
         async with app.run_test() as pilot:
-            # 1. Join and start a real session so `/exit` exercises the full leave path.
+            # 1. Open transport, join, and start a real session for the full `/exit` path.
+            await app.execute_command(f"/server {self.url}")
+            await self.wait_until(lambda: app.api is not None, pilot, message="server connect")
             await app.execute_command("/connect")
             await self.wait_until(lambda: app.player_id is not None, pilot, message="host join")
 
@@ -218,3 +224,47 @@ class ClientCommandBarTests(ClientAppHarness):
 
         if guest.websocket is not None:
             await guest.close()
+
+    async def test_bare_server_command_selects_saved_server_with_keyboard(self) -> None:
+        """Verify `/server` opens history and Enter connects the selected server."""
+        app = TunoApp(initial_name="alice")
+        async with app.run_test() as pilot:
+            command_input = app.query_one("#command-input")
+            suggestions = app.query_one("#command-suggestions", Static)
+            app.server_history = ["ws://127.0.0.1:1", self.url]
+
+            command_input.value = "/server"
+            await pilot.press("enter")
+            await pilot.pause(0.05)
+            self.assertIn("ws://127.0.0.1:1", str(suggestions.renderable))
+            self.assertIn(self.url, str(suggestions.renderable))
+
+            await pilot.press("down")
+            await pilot.press("enter")
+            await self.wait_until(
+                lambda: app.api is not None and app.api.url == self.url,
+                pilot,
+                message="history server connect",
+            )
+
+        await self.close_clients(app, ClientAPI(self.url))
+
+    async def test_failed_server_switch_keeps_current_connection(self) -> None:
+        """Keep the active websocket when a later `/server` target fails to open."""
+        app = TunoApp(initial_name="alice")
+        async with app.run_test() as pilot:
+            await app.execute_command(f"/server {self.url}")
+            await self.wait_until(
+                lambda: app.api is not None and app.api.url == self.url,
+                pilot,
+                message="initial server connect",
+            )
+
+            await app.execute_command("/server ws://127.0.0.1:1")
+            await pilot.pause(0.1)
+
+            self.assertIsNotNone(app.api)
+            self.assertEqual(app.api.url, self.url)
+            self.assertIn("ws://127.0.0.1:1", app.server_history)
+
+        await self.close_clients(app, ClientAPI(self.url))

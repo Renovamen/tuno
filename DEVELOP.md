@@ -36,7 +36,13 @@ python -m tuno.server.local --host 127.0.0.1 --port 8765
 Start the client:
 
 ```bash
-python -m tuno.client.app ws://127.0.0.1:8765
+python -m tuno.client.app
+```
+
+Then connect from inside the TUI:
+
+```text
+/server ws://127.0.0.1:8765
 ```
 
 ## Cloudflare Workers

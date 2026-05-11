@@ -184,7 +184,7 @@ def move_selection(
 def command_template_candidate(template: str) -> Dict[str, str]:
     """Turn a canonical command template into insert/display suggestion data."""
     base = template.split()[0]
-    insert = base + " " if base in {"/connect", "/play"} else base
+    insert = base + " " if base in {"/connect", "/play", "/server"} else base
     return {
         "insert": insert,
         "display": template,

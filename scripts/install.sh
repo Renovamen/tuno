@@ -116,8 +116,10 @@ chmod 0755 "${INSTALL_DIR}/tuno"
 echo
 echo "Installed tuno app to ${APP_DIR}"
 echo "Installed tuno command to ${INSTALL_DIR}/tuno"
-echo "Run (local server): tuno ws://<server-host>:<port>"
-echo "Run (Cloudflare Worker): tuno wss://<your-worker>.<subdomain>.workers.dev"
+echo "Run: tuno"
+echo "Then connect inside the TUI:"
+echo "  /server ws://<server-host>:<port>"
+echo "  /server wss://<your-worker>.<subdomain>.workers.dev"
 
 case ":${PATH}:" in
   *":${INSTALL_DIR}:"*) ;;

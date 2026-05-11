@@ -23,9 +23,11 @@ class ClientAppFlowTests(ClientAppHarness):
         6. Seed an UNO scenario, arm UNO, and verify the UNO intent sticks.
         7. Draw a card, confirm `/pass` becomes available, then pass and verify turn/state reset.
         """
-        app = TunoApp(self.url, initial_name="alice")
+        app = TunoApp(initial_name="alice")
         guest = ClientAPI(self.url)
         async with app.run_test() as pilot:
+            await app.execute_command(f"/server {self.url}")
+            await self.wait_until(lambda: app.api is not None, pilot, message="server connect")
             await app.execute_command("/connect")
             await self.wait_until(lambda: app.player_id is not None, pilot, message="host join")
             self.assertEqual(len(self.session.state.players), 1)

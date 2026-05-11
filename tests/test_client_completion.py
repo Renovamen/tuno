@@ -17,12 +17,12 @@ class ClientCompletionTests(unittest.TestCase):
     def test_command_candidates_use_available_commands(self) -> None:
         """Expose only commands that are currently available in the UI state."""
         candidates = command_candidates(
-            "/", available_commands=["/connect <name>", "/help"], hand=[]
+            "/", available_commands=["/server <server>", "/help"], hand=[]
         )
         self.assertEqual(
             candidates,
             [
-                {"insert": "/connect ", "display": "/connect <name>"},
+                {"insert": "/server ", "display": "/server <server>"},
                 {"insert": "/help", "display": "/help"},
             ],
         )

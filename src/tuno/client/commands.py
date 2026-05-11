@@ -29,7 +29,9 @@ class CommandHost(Protocol):
     preferred_name: str
     say_uno_next: bool
     api: Any
+    server_history: List[str]
 
+    async def connect_server(self, url: str) -> None: ...
     async def connect(
         self, player_name: Optional[str] = None, url: Optional[str] = None
     ) -> None: ...
@@ -51,6 +53,7 @@ class ParsedCommand:
 
 CANONICAL_COMMANDS = {
     "connect",
+    "server",
     "start",
     "play",
     "draw",
@@ -75,9 +78,14 @@ class CommandController:
         self.command_feedback_message: Optional[str] = None
         self.awaiting_server_response = False
         self.completion_state = CompletionState()
+        self.server_history_active = False
 
     async def execute(self, raw: str) -> None:
         """Parse raw input and surface syntax errors before dispatching commands."""
+        if self.server_history_active and raw.strip() in {"", "/server"}:
+            await self.connect_selected_server_history()
+            return
+
         self.clear_feedback()
 
         try:
@@ -91,20 +99,27 @@ class CommandController:
     async def dispatch(self, command: ParsedCommand) -> None:
         """Execute a parsed command while preserving the existing render/update hooks."""
         previous_uno_state = self.host.say_uno_next
-        if command.name not in {"help", "exit"}:
+        if command.name not in {"help", "exit"} and not (
+            command.name == "server" and not command.args
+        ):
             self.set_pending_server_response()
 
-        self.host.say_uno_next = await dispatch_command_action(
-            command,
-            preferred_name=self.host.preferred_name,
-            say_uno_next=self.host.say_uno_next,
-            state=self.host.state,
-            connect=self.host.connect,
-            send=self.host.send,
-            exit_client=self.host.exit_client,
-            set_command_feedback=self.set_feedback,
-            render_state=self.host.render_state,
-        )
+        if command.name == "server" and not command.args:
+            self.show_server_history()
+        else:
+            self.server_history_active = False
+            self.host.say_uno_next = await dispatch_command_action(
+                command,
+                preferred_name=self.host.preferred_name,
+                say_uno_next=self.host.say_uno_next,
+                state=self.host.state,
+                connect=self.host.connect,
+                connect_server=self.host.connect_server,
+                send=self.host.send,
+                exit_client=self.host.exit_client,
+                set_command_feedback=self.set_feedback,
+                render_state=self.host.render_state,
+            )
 
         if command.name == "help" or (
             command.name == "uno" and self.host.say_uno_next != previous_uno_state
@@ -131,7 +146,8 @@ class CommandController:
 
     def reset_completion_state(self) -> None:
         """Reset transient completion state after a command is submitted."""
-        self.completion_state = CompletionState()
+        if not self.server_history_active:
+            self.completion_state = CompletionState()
 
     def set_pending_server_response(self) -> None:
         """Show a waiting hint after a valid command is sent to the server."""
@@ -150,6 +166,10 @@ class CommandController:
 
     def candidates(self, raw: str) -> List[Dict[str, str]]:
         """Build completion candidates for the current input and visible game state."""
+        server_candidates = self._server_history_candidates(raw)
+        if server_candidates is not None:
+            return server_candidates
+
         return command_candidates(
             raw,
             available_commands=self.available_commands(),
@@ -175,7 +195,17 @@ class CommandController:
         """
         suggestions = self.host.query_one("#command-suggestions", Static)
 
+        if self.server_history_active and raw.strip() and not raw.startswith("/server"):
+            self.server_history_active = False
+            self.completion_state = CompletionState()
+
         if not raw.startswith("/"):
+            if self.server_history_active and not raw.strip():
+                candidates = self.candidates(raw)
+                self.completion_state = sync_completion_state(self.completion_state, candidates)
+                suggestions.display = True
+                suggestions.update(render_suggestions(candidates, self.completion_state))
+                return
             suggestions.display = False
             suggestions.update("")
             self.completion_state = CompletionState()
@@ -191,7 +221,7 @@ class CommandController:
             self.command_feedback_message = None
             self.render_meta(
                 self.host.player_id is None,
-                "Join the game: /connect <name>" if self.host.player_id is None else "",
+                self._default_meta_text() if self.host.player_id is None else "",
             )
 
         suggestions.display = True
@@ -221,8 +251,72 @@ class CommandController:
             return False
 
         self.completion_state = move_selection(self.completion_state, candidates, delta)
+
+        if self.server_history_active:
+            selected = candidates[self.completion_state.suggestion_index]
+            command_input.value = selected["insert"]
+            command_input.cursor_position = len(command_input.value)
+
         self.refresh_assist(command_input.value)
         return True
+
+    def show_server_history(self) -> None:
+        """Show the selectable server history list after a bare `/server` command."""
+        if not self.host.server_history:
+            self.server_history_active = False
+            self.set_feedback("Command error: No server history. Usage: /server <server>")
+            return
+
+        self.server_history_active = True
+
+        self.completion_state = CompletionState()
+        command_input = self.host.query_one("#command-input", Input)
+        command_input.value = "/server "
+        command_input.cursor_position = len(command_input.value)
+        command_input.focus()
+
+        self.set_feedback("Select a server with Up/Down, then press Enter.")
+
+    async def connect_selected_server_history(self) -> None:
+        """Connect to the currently selected server history entry."""
+        candidates = self._server_history_candidates("") or []
+        if not candidates:
+            self.server_history_active = False
+            self.set_feedback("Command error: No server history. Usage: /server <server>")
+            return
+
+        index = min(self.completion_state.suggestion_index, len(candidates) - 1)
+        target = candidates[index]["insert"].removeprefix("/server ").strip()
+        self.server_history_active = False
+        self.completion_state = CompletionState()
+        await self.host.connect_server(target)
+
+    def _server_history_candidates(self, raw: str) -> List[Dict[str, str]] | None:
+        """Return server-history candidates when the command bar is in server mode."""
+        text = raw.strip()
+        if not self.server_history_active and not text.startswith("/server"):
+            return None
+
+        if text.startswith("/server"):
+            parts = text.split(maxsplit=1)
+            if len(parts) == 1 and not (raw.endswith(" ") or self.server_history_active):
+                return None
+            prefix = "" if self.server_history_active else parts[1] if len(parts) == 2 else ""
+        elif self.server_history_active and not text:
+            prefix = ""
+        else:
+            return None
+
+        return [
+            {"insert": f"/server {url}", "display": url}
+            for url in self.host.server_history
+            if url.startswith(prefix)
+        ]
+
+    def _default_meta_text(self) -> str:
+        if self.host.api is None:
+            return "Connect to a server: /server <server>"
+        return "Join the game: /connect <name>"
 
 
 def parse_command(raw: str) -> ParsedCommand:
@@ -253,6 +347,8 @@ def parse_command(raw: str) -> ParsedCommand:
         raise CommandError(f"/{name} does not take arguments.")
     elif name == "connect" and len(args) > 1:
         raise CommandError("Usage: /connect [name]")
+    elif name == "server" and len(args) > 1:
+        raise CommandError("Usage: /server [server]")
 
     return ParsedCommand(name=name, args=args)
 
@@ -260,7 +356,10 @@ def parse_command(raw: str) -> ParsedCommand:
 def derive_available_commands(
     state: Dict[str, object], *, connected: bool, joined: bool, uno_armed: bool
 ) -> List[str]:
-    if not connected or not joined:
+    if not connected:
+        return ["/server <server>", "/help", "/exit"]
+
+    if not joined:
         return ["/connect <name>", "/help", "/exit"]
 
     if state.get("finished"):

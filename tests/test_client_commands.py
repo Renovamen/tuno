@@ -10,6 +10,8 @@ class ClientCommandParsingTests(unittest.TestCase):
 
     def test_accepts_canonical_commands(self) -> None:
         """Parse every canonical command shape accepted by the client."""
+        self.assertEqual(parse_command("/server").name, "server")
+        self.assertEqual(parse_command("/server ws://127.0.0.1:8765").args, ["ws://127.0.0.1:8765"])
         self.assertEqual(parse_command("/connect alice").name, "connect")
         self.assertEqual(parse_command("/start").name, "start")
         self.assertEqual(parse_command("/play 3").args, ["3"])
@@ -22,7 +24,16 @@ class ClientCommandParsingTests(unittest.TestCase):
 
     def test_rejects_malformed_commands(self) -> None:
         """Reject malformed command strings before any network call is made."""
-        bad_inputs = ["", "play 3", "/unknown", "/play", "/play x", "/play 2 purple", "/start now"]
+        bad_inputs = [
+            "",
+            "play 3",
+            "/unknown",
+            "/play",
+            "/play x",
+            "/play 2 purple",
+            "/start now",
+            "/server ws://one ws://two",
+        ]
         for raw in bad_inputs:
             with self.assertRaises(CommandError, msg=raw):
                 parse_command(raw)
@@ -34,7 +45,7 @@ class AvailableCommandsTests(unittest.TestCase):
     def test_disconnected_help(self) -> None:
         """Offer connect and help before a player joins a server."""
         cmds = derive_available_commands({}, connected=False, joined=False, uno_armed=False)
-        self.assertEqual(cmds, ["/connect <name>", "/help", "/exit"])
+        self.assertEqual(cmds, ["/server <server>", "/help", "/exit"])
 
     def test_lobby_host_help(self) -> None:
         """Expose `/start` only when the joined player can start the lobby."""

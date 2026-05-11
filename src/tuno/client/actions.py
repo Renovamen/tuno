@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from tuno.client.commands import ParsedCommand
 
 ConnectFn = Callable[[Optional[str], Optional[str]], Awaitable[None]]
+ConnectServerFn = Callable[[str], Awaitable[None]]
 SendFn = Callable[[str], Awaitable[None]]
 ExitFn = Callable[[], Awaitable[None]]
 FeedbackFn = Callable[[str], None]
@@ -24,12 +25,17 @@ async def dispatch_command(
     say_uno_next: bool,
     state: Dict[str, Any],
     connect: ConnectFn,
+    connect_server: ConnectServerFn,
     send: Callable[..., Awaitable[None]],
     exit_client: ExitFn,
     set_command_feedback: FeedbackFn,
     render_state: RenderFn,
 ) -> bool:
     """Execute a parsed command and return the updated UNO-arm state."""
+    if command.name == "server":
+        if command.args:
+            await connect_server(command.args[0])
+        return say_uno_next
     if command.name == "connect":
         name = command.args[0] if command.args else preferred_name
         await connect(player_name=name or None)

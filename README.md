@@ -37,10 +37,20 @@ source ~/.bashrc
 #### Uninstall:
 
 ```bash
-rm -rf ~/.local/share/tuno ~/.local/bin/tuno
+rm -rf ~/.local/share/tuno ~/.local/bin/tuno ~/.config/tuno
 ```
 
-## Server: Deploy on Cloudflare Workers
+## Server
+
+Here is a hosted server you can try:
+
+```bash
+wss://tuno.renovamenzxh.workers.dev
+```
+
+If you want to deploy your own server, check the following.
+
+### Deploy on Cloudflare Workers
 
 **Option 1:** Install [uv](https://docs.astral.sh/uv/#installation), then deploy from a local checkout:
 
@@ -55,30 +65,26 @@ uv run pywrangler deploy
 
 ## How to play
 
-After deployment, connect the client to the Worker URL:
+Start the client app:
 
 ```bash
-tuno wss://<your-worker>.<subdomain>.workers.dev
-```
-
-Here is a hosted server to try:
-
-```bash
-tuno wss://tuno.renovamenzxh.workers.dev
+tuno
 ```
 
 ### Commands
 
+Note: You can always type `Tab` to autocomplete the current command.
+
+- `/server <server>`: Connect to a server.
+- `/server`: Show and select saved servers.
 - `/connect <name>`: Join the server.
-- `/start`: Host starts the round.
+- `/start`: The host starts the round.
 - `/play <n>`: Play the numbered card shown in your hand.
 - `/play <n> [color]`: Play a wild card and choose its color.
 - `/draw`: Draw one card.
 - `/pass`: Pass after drawing, when allowed.
 - `/uno`: Arm UNO for your next play.
 - `/exit`: Quit.
-
-Type `Tab` to autocomplete the current command.
 
 ### Notable rules
 

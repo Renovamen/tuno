@@ -8,15 +8,17 @@ import contextlib
 import os
 import sys
 from typing import Any, Dict, Optional
+from urllib.parse import urlparse
 
-from tuno import __version__
 from textual.app import App, ComposeResult
 from textual.containers import Container, Grid, Vertical, VerticalScroll
 from textual.events import Key
 from textual.widgets import Input, Static
 
+from tuno import __version__
 from tuno.client.api import ClientAPI
 from tuno.client.commands import CommandController
+from tuno.client.config import load_server_history, remember_server
 from tuno.client.rendering import format_server_error, render_tuno_logo
 from tuno.client.theme import activate_tuno_theme
 from tuno.client.updates import (
@@ -33,12 +35,13 @@ class TunoApp(App):
 
     CSS_PATH = "app.tcss"
 
-    def __init__(self, initial_url: str, initial_name: str = "") -> None:
-        """Initialize the app with the default server URL and optional player name."""
+    def __init__(self, initial_url: str = "", initial_name: str = "") -> None:
+        """Initialize the app with an optional server URL and player name."""
         super().__init__()
 
-        self.initial_url = initial_url
+        self.selected_server_url = initial_url.strip()
         self.preferred_name = initial_name.strip()
+        self.server_history = load_server_history()
 
         self.player_id: Optional[str] = None
         self.state: Dict[str, Any] = {}
@@ -102,7 +105,7 @@ class TunoApp(App):
 
         with Container(id="command-zone"):
             with Container(id="command-input-shell"):
-                yield Input(placeholder="/connect alice", id="command-input")
+                yield Input(placeholder="/server ws://127.0.0.1:8765", id="command-input")
 
             yield Static("", id="command-meta")
             yield Static("", id="command-suggestions")
@@ -153,6 +156,15 @@ class TunoApp(App):
         if self.focused is not command_input:
             return
 
+        if (
+            event.key == "enter"
+            and self.command_controller.server_history_active
+            and not command_input.value.strip()
+        ):
+            event.prevent_default()
+            event.stop()
+            await self.execute_command("")
+            return
         if event.key == "tab":
             event.prevent_default()
             event.stop()
@@ -181,7 +193,12 @@ class TunoApp(App):
         await self.command_controller.execute(raw)
 
     async def connect(self, player_name: Optional[str] = None, url: Optional[str] = None) -> None:
-        """Open the websocket, join the lobby, and start the listen loop."""
+        """Join the lobby on the currently open websocket connection."""
+        if url:
+            await self.connect_server(url)
+            if self.api is None:
+                return
+
         if self.api is not None and self.player_id is not None:
             self.render_state()
             return
@@ -192,21 +209,11 @@ class TunoApp(App):
             return
         self.preferred_name = name
 
-        if self.api:
-            await self.api.close()
-            self.api = None
-
-        target_url = (url or self.initial_url).strip() or "ws://127.0.0.1:8765"
-        self.api = ClientAPI(target_url)
-
-        try:
-            await self.api.open()
-        except Exception as exc:  # pragma: no cover
-            self.api = None
-            self.command_controller.set_feedback(f"Connect failed: {exc}")
+        if self.api is None:
+            self.command_controller.set_feedback(
+                "Command error: Connect to a server first with /server <server>"
+            )
             return
-
-        self.render_state()
 
         try:
             await self.api.send("join", name=name)
@@ -215,7 +222,48 @@ class TunoApp(App):
             await self.api.close()
             self.api = None
 
+    async def connect_server(self, url: str) -> None:
+        """Open a websocket connection to the selected server URL."""
+        target_url = url.strip()
+        parsed = urlparse(target_url)
+        if parsed.scheme not in {"ws", "wss"} or not parsed.netloc:
+            self.command_controller.set_feedback(
+                "Command error: /server requires a ws:// or wss:// URL."
+            )
+            return
+
+        self.server_history = remember_server(target_url)
+        next_api = ClientAPI(target_url)
+
+        try:
+            await next_api.open()
+        except Exception as exc:  # pragma: no cover
+            self.command_controller.set_feedback(f"Server connect failed: {exc}")
+            return
+
+        await self._close_current_server()
+        self.selected_server_url = target_url
+        self.api = next_api
         self.listener_task = asyncio.create_task(self.listen_loop())
+        self.command_controller.set_feedback("Connected to server. Join the game: /connect <name>")
+
+    async def _close_current_server(self) -> None:
+        """Close the active websocket and clear state before switching servers."""
+        listener_task = self.listener_task
+        self.listener_task = None
+        if listener_task is not None:
+            listener_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await listener_task
+
+        if self.api is not None:
+            with contextlib.suppress(Exception):
+                await self.api.close()
+
+        self.api = None
+        self.player_id = None
+        self.state = {}
+        self.say_uno_next = False
 
     async def exit_client(self) -> None:
         """Exit the UI immediately and finish websocket cleanup in the background."""
@@ -303,12 +351,13 @@ class TunoApp(App):
 
     def render_state(self) -> None:
         """Re-render all state-derived widgets from the latest local snapshot."""
-        server_target = self.api.url if self.api else self.initial_url
+        server_target = self.api.url if self.api else self.selected_server_url or "No server"
         available = self.command_controller.available_commands()
         view_state = build_view_state(
             app_version=self._app_version,
             server_target=server_target,
             state=self.state,
+            connected=self.api is not None,
             player_id=self.player_id,
             command_feedback_message=self.command_controller.command_feedback_message,
             say_uno_next=self.say_uno_next,
@@ -367,8 +416,6 @@ class TunoApp(App):
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Run the tuno terminal client.")
-    parser.add_argument("server", nargs="?", default=None, help="Server websocket URL.")
-    parser.add_argument("--server", dest="server_flag", default=None, help="Server websocket URL.")
     parser.add_argument(
         "--name",
         dest="player_name",
@@ -391,8 +438,7 @@ def main() -> None:
 
     parser = build_parser()
     args = parser.parse_args()
-    initial_server = args.server_flag or args.server or "ws://127.0.0.1:8765"
-    app = TunoApp(initial_server, initial_name=args.player_name or "")
+    app = TunoApp(initial_name=args.player_name or "")
     app.run()
 
 

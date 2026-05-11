@@ -5,6 +5,7 @@ import contextlib
 import os
 import socket
 import sys
+import tempfile
 import unittest
 from io import StringIO
 from pathlib import Path
@@ -83,10 +84,15 @@ class ClientAppHarness(unittest.IsolatedAsyncioTestCase):
 
     async def asyncSetUp(self) -> None:
         """Start a fresh local websocket server for each interaction test."""
+        self._old_tuno_config_file = os.environ.get("TUNO_CONFIG_FILE")
+        self._config_dir = tempfile.TemporaryDirectory()
+        os.environ["TUNO_CONFIG_FILE"] = str(Path(self._config_dir.name) / "config.yaml")
+
         try:
             self.port = get_free_port()
         except PermissionError as exc:  # pragma: no cover
             self.skipTest(f"local socket binding unavailable in this environment: {exc}")
+
         self.url = f"ws://127.0.0.1:{self.port}"
         self.session = GameSession()
         self.server_task = asyncio.create_task(
@@ -99,6 +105,13 @@ class ClientAppHarness(unittest.IsolatedAsyncioTestCase):
         self.server_task.cancel()
         with contextlib.suppress(asyncio.CancelledError):
             await self.server_task
+
+        if self._old_tuno_config_file is None:
+            os.environ.pop("TUNO_CONFIG_FILE", None)
+        else:
+            os.environ["TUNO_CONFIG_FILE"] = self._old_tuno_config_file
+
+        self._config_dir.cleanup()
 
     async def connect_guest(self, guest: ClientAPI, pilot: Pilot) -> None:
         """Join a second player and wait for the shared session to reflect it."""

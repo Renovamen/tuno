@@ -41,12 +41,19 @@ def build_view_state(
     app_version: str,
     server_target: str,
     state: Dict[str, Any],
+    connected: bool,
     player_id: str | None,
     command_feedback_message: str | None,
     say_uno_next: bool,
     available_commands: Sequence[str],
 ) -> ClientViewState:
     """Convert client runtime state into the strings/renderables needed by widgets."""
+    command_meta_text = _command_meta_text(
+        connected=connected,
+        player_id=player_id,
+        command_feedback_message=command_feedback_message,
+    )
+
     return ClientViewState(
         border_title=f"Tuno v{app_version} ({server_target})",
         local_status_body=render_local_status_body(state),
@@ -58,12 +65,21 @@ def build_view_state(
         top_card_body=render_top_card_body(state),
         recent_activity_body=render_recent_activity_body(state),
         command_meta_visible=bool(command_feedback_message or player_id is None),
-        command_meta_text=(
-            render_command_feedback(command_feedback_message)
-            if command_feedback_message
-            else "Join the game: /connect <name>"
-            if player_id is None
-            else ""
-        ),
+        command_meta_text=command_meta_text,
         input_placeholder=available_commands[0] if available_commands else "/help",
     )
+
+
+def _command_meta_text(
+    *,
+    connected: bool,
+    player_id: str | None,
+    command_feedback_message: str | None,
+) -> str:
+    if command_feedback_message:
+        return render_command_feedback(command_feedback_message)
+    if player_id is not None:
+        return ""
+    if connected:
+        return "Join the game: /connect <name>"
+    return "Connect to a server: /server <server>"
