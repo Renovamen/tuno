@@ -28,7 +28,7 @@ build = [
 ]
 
 [project.scripts]
-tuno = "tuno.client.app:main"
+tuno = "tuno.client.__main__:main"
 tuno-server = "tuno.server.local:main"
 
 [tool.setuptools]
@@ -41,7 +41,7 @@ version = {attr = "tuno.__version__"}
 where = ["src"]
 
 [tool.setuptools.package-data]
-"tuno.client" = ["*.tcss"]
+"tuno.client.tui" = ["*.tcss"]
 
 [tool.ruff]
 line-length = 100
@@ -53,9 +53,9 @@ select = ["E", "F", "I"]
 ignore = ["E501"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/_client_app_support.py" = ["E402"]
-"tests/test_game.py" = ["E402"]
-"tests/test_server_client_connection.py" = ["E402"]
+"tests/client/support.py" = ["E402"]
+"tests/core/test_game.py" = ["E402"]
+"tests/server/test_client_connection.py" = ["E402"]
 
 [tool.ruff.format]
 quote-style = "double"

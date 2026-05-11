@@ -7,12 +7,9 @@ import socket
 import sys
 import tempfile
 import unittest
-from io import StringIO
 from pathlib import Path
 
-from rich.console import Console, RenderableType
-
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 SRC = ROOT / "src"
 # Disable the background GitHub version check so UI tests stay deterministic and offline.
 os.environ.setdefault("TUNO_DISABLE_UPDATE_CHECK", "1")
@@ -21,14 +18,12 @@ if str(SRC) not in sys.path:
 
 try:
     from textual.pilot import Pilot  # type: ignore
-    from textual.widgets import Static
 
-    from tuno.client.app import TunoApp
+    from tuno.client.tui.app import TunoApp
 
     TEXTUAL_AVAILABLE = True
 except Exception:  # pragma: no cover
     Pilot = object  # type: ignore
-    Static = object  # type: ignore
     TunoApp = object  # type: ignore
     TEXTUAL_AVAILABLE = False
 
@@ -42,20 +37,10 @@ __all__ = [
     "ClientAPI",
     "ClientAppHarness",
     "Pilot",
-    "Static",
     "TEXTUAL_AVAILABLE",
     "TunoApp",
     "get_free_port",
-    "render_to_text",
 ]
-
-
-def render_to_text(renderable: RenderableType) -> str:
-    """Render any Rich renderable to a plain string for assertion purposes."""
-    buf = StringIO()
-    console = Console(file=buf, width=80, highlight=False, markup=False)
-    console.print(renderable)
-    return buf.getvalue()
 
 
 def get_free_port() -> int:

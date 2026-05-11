@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from tests._client_app_support import (
+from tests.client.support import (
     Card,
     ClientAPI,
     ClientAppHarness,

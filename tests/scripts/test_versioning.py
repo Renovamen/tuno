@@ -5,12 +5,10 @@ import sys
 import unittest
 from pathlib import Path
 
-
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 SRC_DIR = REPO_ROOT / "src"
 SCRIPT_PATH = REPO_ROOT / "scripts" / "bump_version.py"
 PYPROJECT_PATH = REPO_ROOT / "pyproject.toml"
-APP_PATH = SRC_DIR / "tuno" / "client" / "app.py"
 
 sys.path.insert(0, str(SRC_DIR))
 

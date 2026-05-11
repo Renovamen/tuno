@@ -8,6 +8,8 @@ from rich.console import RenderableType
 from rich.markup import escape
 from rich.table import Table
 
+from tuno.client.state import my_hand
+
 CARD_COLORS = {
     "red": "red",
     "yellow": "yellow",
@@ -31,14 +33,6 @@ def role_label(state: Dict[str, Any]) -> str:
         return "Host"
 
     return "Player"
-
-
-def my_hand(state: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """Return the current player's visible hand from a client snapshot."""
-    for player in state.get("players", []):
-        if player.get("player_id") == state.get("your_player_id"):
-            return list(player.get("hand", []))
-    return []
 
 
 def card_markup(card: Dict[str, Any], *, prefer_short: bool = False) -> str:
@@ -166,28 +160,3 @@ def render_recent_activity_body(state: Dict[str, Any]) -> str:
     recent = [recent_activity_markup(event) for event in game_events[-20:][::-1]]
     recent_lines = recent or ["No game events yet."]
     return "\n".join(recent_lines)
-
-
-def format_server_error(state: Dict[str, Any], message: str, code: str = "") -> str:
-    """Translate server error payloads into client-facing, context-rich text."""
-    top_card = state.get("top_card") or {}
-    top_label = top_card.get("short") or top_card.get("label") or "-"
-    current_color = state.get("current_color") or "-"
-
-    match code:
-        case "illegal_play":
-            return (
-                f"Illegal play: card does not match current color {current_color} "
-                f"or top card {top_label}."
-            )
-        case "wild_needs_color":
-            return "Illegal play: wild cards require a color. Example: /play 1 red"
-        case "wild_draw_four_restricted":
-            return (
-                "Illegal play: Wild Draw Four only works when you have no card matching current "
-                f"color {current_color}."
-            )
-        case "invalid_selection":
-            return "Illegal play: that card number is not valid for your current hand."
-        case _:
-            return f"Error: {message}"

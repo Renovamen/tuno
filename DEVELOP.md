@@ -37,7 +37,7 @@ python -m tuno.server.local --host 127.0.0.1 --port 8765
 Start the client:
 
 ```bash
-python -m tuno.client.app
+python -m tuno.client
 ```
 
 Then connect from inside the TUI:

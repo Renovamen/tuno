@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import unittest
 
-from tuno.client.completion import (
+from tuno.client.tui.commands import PLAY_COMMAND, VALID_PLAY_COLORS
+from tuno.client.tui.completion import (
     CompletionState,
     apply_completion,
     command_candidates,
@@ -61,6 +62,8 @@ class ClientCompletionTests(unittest.TestCase):
         candidates = command_candidates(
             "/play ",
             available_commands=["/play <n> [color]", "/draw", "/help"],
+            card_command_token=PLAY_COMMAND.token,
+            valid_play_colors=VALID_PLAY_COLORS,
             hand=[
                 {"rank": "wild", "short": "WILD", "label": "WILD"},
                 {"rank": "7", "short": "G:7", "label": "Green 7"},

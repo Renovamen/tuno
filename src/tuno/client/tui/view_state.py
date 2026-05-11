@@ -7,7 +7,7 @@ from typing import Any, Dict, Sequence
 
 from rich.console import RenderableType
 
-from tuno.client.rendering import (
+from tuno.client.tui.rendering import (
     render_command_feedback,
     render_hand_body,
     render_local_status_body,

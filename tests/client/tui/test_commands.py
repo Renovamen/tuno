@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from tuno.client.commands import CommandError, derive_available_commands, parse_command
+from tuno.client.tui.commands import CommandError, derive_available_commands, parse_command
 
 
 class ClientCommandParsingTests(unittest.TestCase):

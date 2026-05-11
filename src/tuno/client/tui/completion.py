@@ -4,14 +4,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from os.path import commonprefix
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Callable, Dict, List, Optional, Sequence
 
 from tuno.core.cards import WILD_RANKS
-
-SUGGESTION_ACTIVE_STYLE = "bold #7aa2f7"
-SUGGESTION_DEFAULT_STYLE = "white"
-SUGGESTION_EMPTY_STYLE = "dim"
-MAX_VISIBLE_SUGGESTIONS = 4
 
 
 @dataclass
@@ -61,14 +56,18 @@ def command_candidates(
     raw: str,
     *,
     available_commands: Sequence[str],
+    card_command_token: str | None = None,
+    command_template_candidate: Callable[[str], Dict[str, str]] | None = None,
+    valid_play_colors: Sequence[str] = (),
     hand: Sequence[Dict[str, Any]],
     current_color: Optional[str] = None,
     top_card: Optional[Dict[str, Any]] = None,
 ) -> List[Dict[str, str]]:
     """Build suggestions for the current raw input and game-visible state."""
+    template_candidate = command_template_candidate or default_command_template_candidate
     text = raw.strip()
     if not text:
-        return [command_template_candidate(template) for template in available_commands]
+        return [template_candidate(template) for template in available_commands]
     if not text.startswith("/"):
         return []
 
@@ -78,12 +77,16 @@ def command_candidates(
 
     if len(parts) == 1 and not trailing_space:
         return [
-            command_template_candidate(template)
+            template_candidate(template)
             for template in available_commands
             if template.split()[0].startswith(command)
         ]
 
-    if command == "/play" and any(item.startswith("/play") for item in available_commands):
+    if (
+        card_command_token
+        and command == card_command_token
+        and any(item.split()[0] == card_command_token for item in available_commands)
+    ):
         # `/play` suggestions are stateful: candidate numbers mirror the visible hand order.
         if (len(parts) == 1 and trailing_space) or (len(parts) == 2 and not trailing_space):
             prefix = "" if len(parts) == 1 else parts[1]
@@ -95,8 +98,11 @@ def command_candidates(
                     suffix = " <color>" if card.get("rank") in WILD_RANKS else ""
                     matches.append(
                         {
-                            "insert": f"/play {token}" + (" " if suffix else ""),
-                            "display": f"/play {token}{suffix} — {card.get('short') or card.get('label')}",
+                            "insert": f"{card_command_token} {token}" + (" " if suffix else ""),
+                            "display": (
+                                f"{card_command_token} {token}{suffix} — "
+                                f"{card.get('short') or card.get('label')}"
+                            ),
                         }
                     )
             return matches
@@ -112,38 +118,13 @@ def command_candidates(
                     prefix = "" if len(parts) == 2 else parts[2].lower()
                     return [
                         {
-                            "insert": f"/play {parts[1]} {color}",
-                            "display": f"/play {parts[1]} {color}",
+                            "insert": f"{card_command_token} {parts[1]} {color}",
+                            "display": f"{card_command_token} {parts[1]} {color}",
                         }
-                        for color in ("red", "yellow", "green", "blue")
+                        for color in valid_play_colors
                         if color.startswith(prefix)
                     ]
     return []
-
-
-def render_suggestions(candidates: Sequence[Dict[str, str]], state: CompletionState) -> str:
-    """Render the suggestion dropdown as Textual/Rich markup."""
-    if not candidates:
-        return f"[{SUGGESTION_EMPTY_STYLE}]  (No suggestions)[/]"
-
-    start = 0
-    if len(candidates) > MAX_VISIBLE_SUGGESTIONS:
-        start = min(
-            max(state.suggestion_index - (MAX_VISIBLE_SUGGESTIONS - 1), 0),
-            len(candidates) - MAX_VISIBLE_SUGGESTIONS,
-        )
-
-    lines = []
-    visible = candidates[start : start + MAX_VISIBLE_SUGGESTIONS]
-
-    for offset, candidate in enumerate(visible):
-        index = start + offset
-        is_selected = index == state.suggestion_index
-        style = SUGGESTION_ACTIVE_STYLE if is_selected else SUGGESTION_DEFAULT_STYLE
-        prefix = "❯ " if is_selected else "  "
-        lines.append(f"[{style}]{prefix}{candidate['display']}[/]")
-
-    return "\n".join(lines)
 
 
 def apply_completion(
@@ -181,10 +162,10 @@ def move_selection(
     return state
 
 
-def command_template_candidate(template: str) -> Dict[str, str]:
+def default_command_template_candidate(template: str) -> Dict[str, str]:
     """Turn a canonical command template into insert/display suggestion data."""
     base = template.split()[0]
-    insert = base + " " if base in {"/connect", "/play", "/server"} else base
+    insert = base + " " if len(template.split()) > 1 else base
     return {
         "insert": insert,
         "display": template,

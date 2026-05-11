@@ -33,7 +33,7 @@ class GameEventTextTests(unittest.TestCase):
         self.assertEqual(escape(r"[alice]\bob"), r"\[alice\]\\bob")
 
     def test_play_and_penalty_text_helpers_match_current_event_style(self) -> None:
-        """Preserve the compact event wording used by recent activity rendering."""
+        """Preserve compact event wording used by activity logs."""
         self.assertEqual(game_started(), "Game started.")
         self.assertIn("played", played_card("alice", "[bold red]R:5[/]"))
         self.assertIn("forgot UNO", forgot_uno("alice"))

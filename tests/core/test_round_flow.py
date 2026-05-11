@@ -130,7 +130,7 @@ class GameRoundFlowTests(unittest.TestCase):
         self.assertIn("armed UNO", game.recent_events[-1])
 
     def test_wild_event_uses_chosen_color_in_recent_activity(self) -> None:
-        """Store wild-play activity using the selected color so clients can render it correctly."""
+        """Store wild-play activity using the selected color."""
         game = self.make_game()
         game.players[0].hand = [Card(None, "wild"), Card("green", "1")]
         game.discard_pile = [Card("blue", "4")]

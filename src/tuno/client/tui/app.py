@@ -3,12 +3,8 @@
 from __future__ import annotations
 
 import argparse
-import asyncio
-import contextlib
-import os
 import sys
 from typing import Any, Dict, Optional
-from urllib.parse import urlparse
 
 from textual.app import App, ComposeResult
 from textual.containers import Container, Grid, Vertical, VerticalScroll
@@ -17,21 +13,16 @@ from textual.widgets import Input, Static
 
 from tuno import __version__
 from tuno.client.api import ClientAPI
-from tuno.client.commands import CommandController
-from tuno.client.config import load_server_history, remember_server
-from tuno.client.rendering import format_server_error, render_tuno_logo
-from tuno.client.theme import activate_tuno_theme
-from tuno.client.updates import (
-    build_update_notice,
-    fetch_latest_release_version,
-    is_newer_version,
-    perform_self_update,
-)
-from tuno.client.view_state import build_view_state
+from tuno.client.runtime import ClientRuntime
+from tuno.client.tui.commands import CommandController
+from tuno.client.tui.rendering import render_tuno_logo
+from tuno.client.tui.theme import activate_tuno_theme
+from tuno.client.tui.view_state import build_view_state
+from tuno.client.updates import perform_self_update
 
 
 class TunoApp(App):
-    """Own the client-side Textual UI, local state, and command orchestration."""
+    """Own the client-side Textual UI and delegate runtime behavior."""
 
     CSS_PATH = "app.tcss"
 
@@ -39,23 +30,104 @@ class TunoApp(App):
         """Initialize the app with an optional server URL and player name."""
         super().__init__()
 
-        self.selected_server_url = initial_url.strip()
-        self.preferred_name = initial_name.strip()
-        self.server_history = load_server_history()
-
-        self.player_id: Optional[str] = None
-        self.state: Dict[str, Any] = {}
-        self.say_uno_next = False
-        self._exiting = False
-
-        self.listener_task: Optional[asyncio.Task] = None
-        self.shutdown_task: Optional[asyncio.Task] = None
-        self.update_check_task: Optional[asyncio.Task] = None
-
-        self.api: Optional[ClientAPI] = None
         self.command_controller = CommandController(self)
-        self.update_notice_text = ""
-        self._check_for_updates_enabled = os.environ.get("TUNO_DISABLE_UPDATE_CHECK") != "1"
+        self.runtime = ClientRuntime(
+            initial_url=initial_url,
+            initial_name=initial_name,
+            set_feedback=self.command_controller.set_feedback,
+            clear_pending_server_response=self.command_controller.clear_pending_server_response,
+            render_state=self.render_state,
+            exit_app=lambda: self.exit(),
+        )
+        self._app_version = __version__
+
+    @property
+    def selected_server_url(self) -> str:
+        return self.runtime.selected_server_url
+
+    @selected_server_url.setter
+    def selected_server_url(self, value: str) -> None:
+        self.runtime.selected_server_url = value
+
+    @property
+    def preferred_name(self) -> str:
+        return self.runtime.preferred_name
+
+    @preferred_name.setter
+    def preferred_name(self, value: str) -> None:
+        self.runtime.preferred_name = value
+
+    @property
+    def server_history(self) -> list[str]:
+        return self.runtime.server_history
+
+    @server_history.setter
+    def server_history(self, value: list[str]) -> None:
+        self.runtime.server_history = value
+
+    @property
+    def player_id(self) -> Optional[str]:
+        return self.runtime.player_id
+
+    @player_id.setter
+    def player_id(self, value: Optional[str]) -> None:
+        self.runtime.player_id = value
+
+    @property
+    def state(self) -> Dict[str, Any]:
+        return self.runtime.state
+
+    @state.setter
+    def state(self, value: Dict[str, Any]) -> None:
+        self.runtime.state = value
+
+    @property
+    def say_uno_next(self) -> bool:
+        return self.runtime.say_uno_next
+
+    @say_uno_next.setter
+    def say_uno_next(self, value: bool) -> None:
+        self.runtime.say_uno_next = value
+
+    @property
+    def listener_task(self):
+        return self.runtime.listener_task
+
+    @listener_task.setter
+    def listener_task(self, value) -> None:
+        self.runtime.listener_task = value
+
+    @property
+    def shutdown_task(self):
+        return self.runtime.shutdown_task
+
+    @shutdown_task.setter
+    def shutdown_task(self, value) -> None:
+        self.runtime.shutdown_task = value
+
+    @property
+    def update_check_task(self):
+        return self.runtime.update_check_task
+
+    @update_check_task.setter
+    def update_check_task(self, value) -> None:
+        self.runtime.update_check_task = value
+
+    @property
+    def api(self) -> Optional[ClientAPI]:
+        return self.runtime.api
+
+    @api.setter
+    def api(self, value: Optional[ClientAPI]) -> None:
+        self.runtime.api = value
+
+    @property
+    def update_notice_text(self) -> str:
+        return self.runtime.update_notice_text
+
+    @update_notice_text.setter
+    def update_notice_text(self, value: str) -> None:
+        self.runtime.update_notice_text = value
 
     def compose(self) -> ComposeResult:
         """Compose the static widget tree for the command-first client layout."""
@@ -125,21 +197,9 @@ class TunoApp(App):
 
         self.query_one("#command-input", Input).focus()
 
-        if self._check_for_updates_enabled:
-            self.update_check_task = asyncio.create_task(self._check_for_updates())
+        self.runtime.start_update_check(self._app_version)
 
         self.render_state()
-
-    async def _check_for_updates(self) -> None:
-        """Fetch the latest release version without blocking initial TUI startup."""
-        try:
-            latest = await asyncio.to_thread(fetch_latest_release_version)
-        except Exception:  # pragma: no cover - network failures are intentionally silent
-            return
-
-        if latest and is_newer_version(latest, self._app_version):
-            self.update_notice_text = build_update_notice(latest)
-            self.render_state()
 
     async def on_input_changed(self, event: Input.Changed) -> None:
         """Refresh suggestions whenever the command input text changes."""
@@ -193,161 +253,20 @@ class TunoApp(App):
         await self.command_controller.execute(raw)
 
     async def connect(self, player_name: Optional[str] = None, url: Optional[str] = None) -> None:
-        """Join the lobby on the currently open websocket connection."""
-        if url:
-            await self.connect_server(url)
-            if self.api is None:
-                return
-
-        if self.api is not None and self.player_id is not None:
-            self.render_state()
-            return
-
-        name = (player_name or self.preferred_name).strip()
-        if not name:
-            self.command_controller.set_feedback("Command error: Usage: /connect <name>")
-            return
-        self.preferred_name = name
-
-        if self.api is None:
-            self.command_controller.set_feedback(
-                "Command error: Connect to a server first with /server <server>"
-            )
-            return
-
-        try:
-            await self.api.send("join", name=name)
-        except Exception as exc:  # pragma: no cover
-            self.command_controller.set_feedback(f"Join failed: {exc}")
-            await self.api.close()
-            self.api = None
+        """Delegate lobby join behavior to the runtime service."""
+        await self.runtime.connect(player_name=player_name, url=url)
 
     async def connect_server(self, url: str) -> None:
-        """Open a websocket connection to the selected server URL."""
-        target_url = url.strip()
-        parsed = urlparse(target_url)
-        if parsed.scheme not in {"ws", "wss"} or not parsed.netloc:
-            self.command_controller.set_feedback(
-                "Command error: /server requires a ws:// or wss:// URL."
-            )
-            return
-
-        self.server_history = remember_server(target_url)
-        next_api = ClientAPI(target_url)
-
-        try:
-            await next_api.open()
-        except Exception as exc:  # pragma: no cover
-            self.command_controller.set_feedback(f"Server connect failed: {exc}")
-            return
-
-        await self._close_current_server()
-        self.selected_server_url = target_url
-        self.api = next_api
-        self.listener_task = asyncio.create_task(self.listen_loop())
-        self.command_controller.set_feedback("Connected to server. Join the game: /connect <name>")
-
-    async def _close_current_server(self) -> None:
-        """Close the active websocket and clear state before switching servers."""
-        listener_task = self.listener_task
-        self.listener_task = None
-        if listener_task is not None:
-            listener_task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await listener_task
-
-        if self.api is not None:
-            with contextlib.suppress(Exception):
-                await self.api.close()
-
-        self.api = None
-        self.player_id = None
-        self.state = {}
-        self.say_uno_next = False
+        """Delegate server switching behavior to the runtime service."""
+        await self.runtime.connect_server(url)
 
     async def exit_client(self) -> None:
-        """Exit the UI immediately and finish websocket cleanup in the background."""
-        self._exiting = True
-
-        api = self.api
-        player_id = self.player_id
-        listener_task = self.listener_task
-
-        self.api = None
-        self.player_id = None
-        self.state = {}
-        self.listener_task = None
-
-        self.shutdown_task = asyncio.create_task(
-            self._shutdown_transport(api, player_id, listener_task)
-        )
-        self.exit()
-
-    async def _shutdown_transport(
-        self,
-        api: Optional[ClientAPI],
-        player_id: Optional[str],
-        listener_task: Optional[asyncio.Task],
-    ) -> None:
-        """Finish leave/close cleanup without blocking the visible app exit path."""
-        if api is not None:
-            if player_id is not None:
-                with contextlib.suppress(Exception):
-                    await api.send("leave")
-            with contextlib.suppress(Exception):
-                await api.close()
-
-        if listener_task is not None:
-            listener_task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await listener_task
-
-    async def listen_loop(self) -> None:
-        """Consume server events until the websocket closes or raises."""
-        assert self.api is not None
-
-        try:
-            async for message in self.api.events():
-                await self.handle_message(message)
-        except Exception as exc:  # pragma: no cover
-            if self._exiting:
-                return
-
-            self.player_id = None
-            self.api = None
-            self.state = {}
-            self.command_controller.set_feedback(f"Disconnected: {exc}")
-
-    async def handle_message(self, message: Dict[str, Any]) -> None:
-        """Apply one decoded server message to local UI state."""
-        kind = message.get("type")
-
-        if kind == "welcome":
-            self.command_controller.clear_pending_server_response()
-            self.player_id = message.get("player_id")
-            self.render_state()
-        elif kind == "error":
-            self.command_controller.set_feedback(
-                format_server_error(
-                    self.state, message.get("message", "unknown error"), message.get("code", "")
-                )
-            )
-        elif kind in ("info", "state"):
-            self.command_controller.clear_pending_server_response()
-            if kind == "state":
-                self.state = message.get("state", {})
-            self.render_state()
+        """Delegate shutdown behavior to the runtime service."""
+        await self.runtime.exit_client()
 
     async def send(self, kind: str, **payload: Any) -> None:
-        """Send one action to the server or surface a local transport error."""
-        if not self.api:
-            self.command_controller.set_feedback("Command error: Connect first.")
-            return
-
-        try:
-            await self.api.send(kind, **payload)
-        except Exception as exc:  # pragma: no cover
-            self.command_controller.set_feedback(f"Error: Send failed: {exc}")
+        """Delegate one outbound server action to the runtime service."""
+        await self.runtime.send(kind, **payload)
 
     def render_state(self) -> None:
         """Re-render all state-derived widgets from the latest local snapshot."""

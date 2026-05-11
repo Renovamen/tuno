@@ -6,15 +6,171 @@ from typing import Any, Dict, List, Optional, Protocol
 from textual.widgets import Input, Static
 
 from tuno.client.actions import dispatch_command as dispatch_command_action
-from tuno.client.completion import (
+from tuno.client.state import my_hand
+from tuno.client.tui.completion import (
     CompletionState,
     apply_completion,
     command_candidates,
     move_selection,
-    render_suggestions,
     sync_completion_state,
 )
-from tuno.client.rendering import my_hand
+from tuno.client.tui.suggestions import render_suggestions
+
+
+class CommandError(ValueError):
+    """Raised when a user enters an invalid command."""
+
+
+@dataclass(frozen=True)
+class ParsedCommand:
+    name: str
+    args: List[str]
+
+
+@dataclass(frozen=True)
+class CommandSpec:
+    """Central definition for a user-facing slash command."""
+
+    name: str
+    template: str
+    min_args: int = 0
+    max_args: int = 0
+    trailing_space_completion: bool = False
+
+    @property
+    def token(self) -> str:
+        return f"/{self.name}"
+
+    @property
+    def usage(self) -> str:
+        return self.template
+
+    @property
+    def takes_args(self) -> bool:
+        return self.max_args > 0
+
+
+COMMAND_SPECS_BY_NAME = {
+    spec.name: spec
+    for spec in (
+        CommandSpec("connect", "/connect <name>", max_args=1, trailing_space_completion=True),
+        CommandSpec("server", "/server <server>", max_args=1, trailing_space_completion=True),
+        CommandSpec("start", "/start"),
+        CommandSpec(
+            "play", "/play <n> [color]", min_args=1, max_args=2, trailing_space_completion=True
+        ),
+        CommandSpec("draw", "/draw"),
+        CommandSpec("pass", "/pass"),
+        CommandSpec("uno", "/uno"),
+        CommandSpec("help", "/help"),
+        CommandSpec("exit", "/exit"),
+    )
+}
+
+CANONICAL_COMMANDS = frozenset(COMMAND_SPECS_BY_NAME)
+
+CONNECT_COMMAND = COMMAND_SPECS_BY_NAME["connect"]
+SERVER_COMMAND = COMMAND_SPECS_BY_NAME["server"]
+START_COMMAND = COMMAND_SPECS_BY_NAME["start"]
+PLAY_COMMAND = COMMAND_SPECS_BY_NAME["play"]
+DRAW_COMMAND = COMMAND_SPECS_BY_NAME["draw"]
+PASS_COMMAND = COMMAND_SPECS_BY_NAME["pass"]
+UNO_COMMAND = COMMAND_SPECS_BY_NAME["uno"]
+HELP_COMMAND = COMMAND_SPECS_BY_NAME["help"]
+EXIT_COMMAND = COMMAND_SPECS_BY_NAME["exit"]
+
+VALID_PLAY_COLORS = (
+    "red",
+    "yellow",
+    "green",
+    "blue",
+)
+
+
+def parse_command(raw: str) -> ParsedCommand:
+    text = raw.strip()
+    if not text:
+        raise CommandError("Command is empty.")
+    if not text.startswith("/"):
+        raise CommandError("Commands must start with '/'.")
+
+    parts = text[1:].split()
+    if not parts:
+        raise CommandError("Command is empty.")
+
+    name = parts[0].lower()
+    args = parts[1:]
+    spec = COMMAND_SPECS_BY_NAME.get(name)
+
+    if spec is None:
+        raise CommandError(f"Unknown command: /{name}")
+
+    if not spec.takes_args and args:
+        raise CommandError(f"{spec.token} does not take arguments.")
+    if len(args) < spec.min_args or len(args) > spec.max_args:
+        raise CommandError(f"Usage: {spec.usage}")
+
+    if spec is PLAY_COMMAND:
+        if not args[0].isdigit():
+            raise CommandError(f"{PLAY_COMMAND.token} requires a numeric card index.")
+        if len(args) == 2 and args[1].lower() not in VALID_PLAY_COLORS:
+            raise CommandError(
+                f"{PLAY_COMMAND.token} color must be one of: {', '.join(VALID_PLAY_COLORS)}."
+            )
+
+    return ParsedCommand(name=name, args=args)
+
+
+def derive_available_commands(
+    state: Dict[str, object], *, connected: bool, joined: bool, uno_armed: bool
+) -> List[str]:
+    if not connected:
+        return [SERVER_COMMAND.template, HELP_COMMAND.template, EXIT_COMMAND.template]
+
+    if not joined:
+        return [CONNECT_COMMAND.template, HELP_COMMAND.template, EXIT_COMMAND.template]
+
+    if state.get("finished"):
+        commands = [HELP_COMMAND.template, EXIT_COMMAND.template]
+        if state.get("can_start"):
+            commands.insert(0, START_COMMAND.template)
+        return commands
+    if not state.get("started"):
+        commands = [HELP_COMMAND.template, EXIT_COMMAND.template]
+        if state.get("can_start"):
+            commands.insert(0, START_COMMAND.template)
+        return commands
+    if not state.get("your_turn"):
+        return [HELP_COMMAND.template, EXIT_COMMAND.template]
+
+    commands: List[str] = [PLAY_COMMAND.template]
+
+    if state.get("can_draw"):
+        commands.append(DRAW_COMMAND.template)
+    if state.get("can_pass"):
+        commands.append(PASS_COMMAND.template)
+    if state.get("uno_hint") or uno_armed:
+        commands.append(UNO_COMMAND.template)
+
+    commands.append(HELP_COMMAND.template)
+    commands.append(EXIT_COMMAND.template)
+
+    return commands
+
+
+def command_template_candidate(template: str) -> Dict[str, str]:
+    """Turn a canonical command template into insert/display suggestion data."""
+    base = template.split()[0]
+    spec = COMMAND_SPECS_BY_NAME.get(base.removeprefix("/"))
+    insert = base + " " if spec and spec.trailing_space_completion else base
+    return {
+        "insert": insert,
+        "display": template,
+    }
+
+
+def matches_command_token(text: str, spec: CommandSpec) -> bool:
+    return text == spec.token or text.startswith(f"{spec.token} ")
 
 
 class CommandHost(Protocol):
@@ -41,35 +197,6 @@ class CommandHost(Protocol):
     def query_one(self, selector: str, expect_type: type | None = None): ...
 
 
-class CommandError(ValueError):
-    """Raised when a user enters an invalid command."""
-
-
-@dataclass(frozen=True)
-class ParsedCommand:
-    name: str
-    args: List[str]
-
-
-CANONICAL_COMMANDS = {
-    "connect",
-    "server",
-    "start",
-    "play",
-    "draw",
-    "pass",
-    "uno",
-    "help",
-    "exit",
-}
-VALID_PLAY_COLORS = {
-    "red",
-    "yellow",
-    "green",
-    "blue",
-}
-
-
 class CommandController:
     """Own command-bar parsing, completion, feedback, and dispatch orchestration."""
 
@@ -82,7 +209,7 @@ class CommandController:
 
     async def execute(self, raw: str) -> None:
         """Parse raw input and surface syntax errors before dispatching commands."""
-        if self.server_history_active and raw.strip() in {"", "/server"}:
+        if self.server_history_active and raw.strip() in {"", SERVER_COMMAND.token}:
             await self.connect_selected_server_history()
             return
 
@@ -99,12 +226,12 @@ class CommandController:
     async def dispatch(self, command: ParsedCommand) -> None:
         """Execute a parsed command while preserving the existing render/update hooks."""
         previous_uno_state = self.host.say_uno_next
-        if command.name not in {"help", "exit"} and not (
-            command.name == "server" and not command.args
+        if command.name not in {HELP_COMMAND.name, EXIT_COMMAND.name} and not (
+            command.name == SERVER_COMMAND.name and not command.args
         ):
             self.set_pending_server_response()
 
-        if command.name == "server" and not command.args:
+        if command.name == SERVER_COMMAND.name and not command.args:
             self.show_server_history()
         else:
             self.server_history_active = False
@@ -121,8 +248,8 @@ class CommandController:
                 render_state=self.host.render_state,
             )
 
-        if command.name == "help" or (
-            command.name == "uno" and self.host.say_uno_next != previous_uno_state
+        if command.name == HELP_COMMAND.name or (
+            command.name == UNO_COMMAND.name and self.host.say_uno_next != previous_uno_state
         ):
             self.host.render_state()
 
@@ -173,6 +300,9 @@ class CommandController:
         return command_candidates(
             raw,
             available_commands=self.available_commands(),
+            card_command_token=PLAY_COMMAND.token,
+            command_template_candidate=command_template_candidate,
+            valid_play_colors=VALID_PLAY_COLORS,
             hand=my_hand(self.host.state),
             current_color=self.host.state.get("current_color"),
             top_card=self.host.state.get("top_card") or None,
@@ -195,7 +325,11 @@ class CommandController:
         """
         suggestions = self.host.query_one("#command-suggestions", Static)
 
-        if self.server_history_active and raw.strip() and not raw.startswith("/server"):
+        if (
+            self.server_history_active
+            and raw.strip()
+            and not matches_command_token(raw.strip(), SERVER_COMMAND)
+        ):
             self.server_history_active = False
             self.completion_state = CompletionState()
 
@@ -261,17 +395,17 @@ class CommandController:
         return True
 
     def show_server_history(self) -> None:
-        """Show the selectable server history list after a bare `/server` command."""
+        """Show the selectable server history list after a bare server command."""
         if not self.host.server_history:
             self.server_history_active = False
-            self.set_feedback("Command error: No server history. Usage: /server <server>")
+            self.set_feedback(f"Command error: No server history. Usage: {SERVER_COMMAND.usage}")
             return
 
         self.server_history_active = True
 
         self.completion_state = CompletionState()
         command_input = self.host.query_one("#command-input", Input)
-        command_input.value = "/server "
+        command_input.value = f"{SERVER_COMMAND.token} "
         command_input.cursor_position = len(command_input.value)
         command_input.focus()
 
@@ -282,11 +416,11 @@ class CommandController:
         candidates = self._server_history_candidates("") or []
         if not candidates:
             self.server_history_active = False
-            self.set_feedback("Command error: No server history. Usage: /server <server>")
+            self.set_feedback(f"Command error: No server history. Usage: {SERVER_COMMAND.usage}")
             return
 
         index = min(self.completion_state.suggestion_index, len(candidates) - 1)
-        target = candidates[index]["insert"].removeprefix("/server ").strip()
+        target = candidates[index]["insert"].removeprefix(f"{SERVER_COMMAND.token} ").strip()
         self.server_history_active = False
         self.completion_state = CompletionState()
         await self.host.connect_server(target)
@@ -294,10 +428,10 @@ class CommandController:
     def _server_history_candidates(self, raw: str) -> List[Dict[str, str]] | None:
         """Return server-history candidates when the command bar is in server mode."""
         text = raw.strip()
-        if not self.server_history_active and not text.startswith("/server"):
+        if not self.server_history_active and not matches_command_token(text, SERVER_COMMAND):
             return None
 
-        if text.startswith("/server"):
+        if matches_command_token(text, SERVER_COMMAND):
             parts = text.split(maxsplit=1)
             if len(parts) == 1 and not (raw.endswith(" ") or self.server_history_active):
                 return None
@@ -308,83 +442,12 @@ class CommandController:
             return None
 
         return [
-            {"insert": f"/server {url}", "display": url}
+            {"insert": f"{SERVER_COMMAND.token} {url}", "display": url}
             for url in self.host.server_history
             if url.startswith(prefix)
         ]
 
     def _default_meta_text(self) -> str:
         if self.host.api is None:
-            return "Connect to a server: /server <server>"
-        return "Join the game: /connect <name>"
-
-
-def parse_command(raw: str) -> ParsedCommand:
-    text = raw.strip()
-    if not text:
-        raise CommandError("Command is empty.")
-    if not text.startswith("/"):
-        raise CommandError("Commands must start with '/'.")
-
-    parts = text[1:].split()
-    if not parts:
-        raise CommandError("Command is empty.")
-
-    name = parts[0].lower()
-    args = parts[1:]
-
-    if name not in CANONICAL_COMMANDS:
-        raise CommandError(f"Unknown command: /{name}")
-
-    if name == "play":
-        if len(args) not in {1, 2}:
-            raise CommandError("Usage: /play <n> [color]")
-        if not args[0].isdigit():
-            raise CommandError("/play requires a numeric card index.")
-        if len(args) == 2 and args[1].lower() not in VALID_PLAY_COLORS:
-            raise CommandError("/play color must be one of: red, yellow, green, blue.")
-    elif name in {"start", "draw", "pass", "uno", "help", "exit"} and args:
-        raise CommandError(f"/{name} does not take arguments.")
-    elif name == "connect" and len(args) > 1:
-        raise CommandError("Usage: /connect [name]")
-    elif name == "server" and len(args) > 1:
-        raise CommandError("Usage: /server [server]")
-
-    return ParsedCommand(name=name, args=args)
-
-
-def derive_available_commands(
-    state: Dict[str, object], *, connected: bool, joined: bool, uno_armed: bool
-) -> List[str]:
-    if not connected:
-        return ["/server <server>", "/help", "/exit"]
-
-    if not joined:
-        return ["/connect <name>", "/help", "/exit"]
-
-    if state.get("finished"):
-        commands = ["/help", "/exit"]
-        if state.get("can_start"):
-            commands.insert(0, "/start")
-        return commands
-    if not state.get("started"):
-        commands = ["/help", "/exit"]
-        if state.get("can_start"):
-            commands.insert(0, "/start")
-        return commands
-    if not state.get("your_turn"):
-        return ["/help", "/exit"]
-
-    commands: List[str] = ["/play <n> [color]"]
-
-    if state.get("can_draw"):
-        commands.append("/draw")
-    if state.get("can_pass"):
-        commands.append("/pass")
-    if state.get("uno_hint") or uno_armed:
-        commands.append("/uno")
-
-    commands.append("/help")
-    commands.append("/exit")
-
-    return commands
+            return f"Connect to a server: {SERVER_COMMAND.template}"
+        return f"Join the game: {CONNECT_COMMAND.template}"
