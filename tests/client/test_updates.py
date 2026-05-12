@@ -1,13 +1,8 @@
 from __future__ import annotations
 
 import unittest
-from unittest.mock import Mock
 
-from tuno.client.updates import (
-    is_newer_version,
-    normalize_version,
-    perform_self_update,
-)
+from tuno.client.updates import is_newer_version, normalize_version
 
 
 class ClientUpdateTests(unittest.TestCase):
@@ -21,39 +16,3 @@ class ClientUpdateTests(unittest.TestCase):
         # Treat dotted numeric parts as ordered version components during comparison.
         self.assertTrue(is_newer_version("v1.2.0", "1.1.9"))
         self.assertFalse(is_newer_version("v1.2.0", "1.2.0"))
-
-    def test_perform_self_update_runs_installer_when_newer_version_exists(self) -> None:
-        # When a newer release exists, fetch the install script and execute it once.
-        fetch_install_script = Mock(return_value="echo install")
-        run_install_script = Mock()
-        echo = Mock()
-
-        updated = perform_self_update(
-            "1.0.0",
-            fetch_latest_version=lambda: "1.1.0",
-            fetch_install_script_fn=fetch_install_script,
-            run_install_script_fn=run_install_script,
-            echo=echo,
-        )
-
-        self.assertTrue(updated)
-        fetch_install_script.assert_called_once_with()
-        run_install_script.assert_called_once_with("echo install")
-
-    def test_perform_self_update_skips_install_when_already_current(self) -> None:
-        # Skip any installer work when the local client is already at the latest version.
-        fetch_install_script = Mock()
-        run_install_script = Mock()
-        echo = Mock()
-
-        updated = perform_self_update(
-            "1.1.0",
-            fetch_latest_version=lambda: "1.1.0",
-            fetch_install_script_fn=fetch_install_script,
-            run_install_script_fn=run_install_script,
-            echo=echo,
-        )
-
-        self.assertFalse(updated)
-        fetch_install_script.assert_not_called()
-        run_install_script.assert_not_called()

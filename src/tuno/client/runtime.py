@@ -31,7 +31,6 @@ class ClientRuntime:
         self,
         *,
         initial_url: str = "",
-        initial_name: str = "",
         set_feedback: FeedbackCallback,
         clear_pending_server_response: Callable[[], None],
         render_state: RenderCallback,
@@ -40,7 +39,7 @@ class ClientRuntime:
         task_factory: TaskFactory = asyncio.create_task,
     ) -> None:
         self.selected_server_url = initial_url.strip()
-        self.preferred_name = initial_name.strip()
+        self.preferred_name = ""
         self.server_history = load_server_history()
 
         self.player_id: Optional[str] = None

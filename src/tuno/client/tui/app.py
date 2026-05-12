@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import argparse
-import sys
 from typing import Any, Dict, Optional
 
 from textual.app import App, ComposeResult
@@ -18,7 +16,6 @@ from tuno.client.tui.commands import CommandController
 from tuno.client.tui.rendering import render_tuno_logo
 from tuno.client.tui.theme import activate_tuno_theme
 from tuno.client.tui.view_state import build_view_state
-from tuno.client.updates import perform_self_update
 
 
 class TunoApp(App):
@@ -26,14 +23,13 @@ class TunoApp(App):
 
     CSS_PATH = "app.tcss"
 
-    def __init__(self, initial_url: str = "", initial_name: str = "") -> None:
-        """Initialize the app with an optional server URL and player name."""
+    def __init__(self, initial_url: str = "") -> None:
+        """Initialize the app with an optional server URL."""
         super().__init__()
 
         self.command_controller = CommandController(self)
         self.runtime = ClientRuntime(
             initial_url=initial_url,
-            initial_name=initial_name,
             set_feedback=self.command_controller.set_feedback,
             clear_pending_server_response=self.command_controller.clear_pending_server_response,
             render_state=self.render_state,
@@ -185,7 +181,7 @@ class TunoApp(App):
             yield Static("", id="update-notice")
 
     async def on_mount(self) -> None:
-        """Focus the command input and render the initial empty state."""
+        """Focus the command input, render initial state, and connect to an initial server."""
         from importlib.metadata import version as pkg_version
 
         activate_tuno_theme(self)
@@ -200,6 +196,9 @@ class TunoApp(App):
         self.runtime.start_update_check(self._app_version)
 
         self.render_state()
+
+        if self.selected_server_url:
+            await self.connect_server(self.selected_server_url)
 
     async def on_input_changed(self, event: Input.Changed) -> None:
         """Refresh suggestions whenever the command input text changes."""
@@ -333,33 +332,6 @@ class TunoApp(App):
         update_notice.update(self.update_notice_text)
 
 
-def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Run the tuno terminal client.")
-    parser.add_argument(
-        "--name",
-        dest="player_name",
-        default=None,
-        help="Optional player name used by /connect if omitted.",
-    )
-    return parser
-
-
-def build_update_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Update the installed tuno client.")
-    return parser
-
-
-def main() -> None:
-    if len(sys.argv) > 1 and sys.argv[1] == "update":
-        build_update_parser().parse_args(sys.argv[2:])
-        perform_self_update(__version__)
-        return
-
-    parser = build_parser()
-    args = parser.parse_args()
-    app = TunoApp(initial_name=args.player_name or "")
+def run_client(*, server_url: str = "") -> None:
+    app = TunoApp(initial_url=server_url)
     app.run()
-
-
-if __name__ == "__main__":
-    main()

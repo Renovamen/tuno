@@ -23,7 +23,7 @@ class ClientCommandControllerTests(ClientAppHarness):
         4. Seed a hand where one numbered card is illegal and one wild card lacks a color.
         5. Verify both local validation failures produce clear feedback.
         """
-        app = TunoApp(initial_name="alice")
+        app = TunoApp()
         guest = ClientAPI(self.url)
         async with app.run_test() as pilot:
             # 1. Invalid command before connect should surface parser feedback.
@@ -35,7 +35,7 @@ class ClientCommandControllerTests(ClientAppHarness):
             # 2. Open the server connection, join as host, then add a guest.
             await app.execute_command(f"/server {self.url}")
             await self.wait_until(lambda: app.api is not None, pilot, message="server connect")
-            await app.execute_command("/connect")
+            await app.execute_command("/connect alice")
             await self.wait_until(lambda: app.player_id is not None, pilot, message="host join")
 
             await self.connect_guest(guest, pilot)
@@ -86,14 +86,14 @@ class ClientCommandControllerTests(ClientAppHarness):
         3. Verify the client transport is closed and the app exit hook is called once.
         4. Verify the authoritative server session observes the player leaving the game.
         """
-        app = TunoApp(initial_name="alice")
+        app = TunoApp()
         guest = ClientAPI(self.url)
         app.exit = Mock()
         async with app.run_test() as pilot:
             # 1. Open transport, join, and start a real session for the full `/exit` path.
             await app.execute_command(f"/server {self.url}")
             await self.wait_until(lambda: app.api is not None, pilot, message="server connect")
-            await app.execute_command("/connect")
+            await app.execute_command("/connect alice")
             await self.wait_until(lambda: app.player_id is not None, pilot, message="host join")
 
             await self.connect_guest(guest, pilot)
@@ -120,7 +120,7 @@ class ClientCommandControllerTests(ClientAppHarness):
 
     async def test_failed_server_switch_keeps_current_connection(self) -> None:
         """Keep the active websocket when a later `/server` target fails to open."""
-        app = TunoApp(initial_name="alice")
+        app = TunoApp()
         async with app.run_test() as pilot:
             await app.execute_command(f"/server {self.url}")
             await self.wait_until(

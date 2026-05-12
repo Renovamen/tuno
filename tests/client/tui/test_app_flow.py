@@ -11,6 +11,13 @@ from tests.client.support import (
 class ClientAppFlowTests(ClientAppHarness):
     """Cover end-to-end gameplay flow in the Textual client."""
 
+    async def test_initial_url_connects_on_mount(self) -> None:
+        app = TunoApp(initial_url=self.url)
+
+        async with app.run_test() as pilot:
+            await self.wait_until(lambda: app.api is not None, pilot, message="initial server")
+            await app.runtime.close_current_server()
+
     async def test_app_can_connect_start_play_draw_and_pass(self) -> None:
         """Exercise the full gameplay happy path across lobby, game, and turn actions.
 
@@ -23,12 +30,12 @@ class ClientAppFlowTests(ClientAppHarness):
         6. Seed an UNO scenario, arm UNO, and verify the UNO intent sticks.
         7. Draw a card, confirm `/pass` becomes available, then pass and verify turn/state reset.
         """
-        app = TunoApp(initial_name="alice")
+        app = TunoApp()
         guest = ClientAPI(self.url)
         async with app.run_test() as pilot:
             await app.execute_command(f"/server {self.url}")
             await self.wait_until(lambda: app.api is not None, pilot, message="server connect")
-            await app.execute_command("/connect")
+            await app.execute_command("/connect alice")
             await self.wait_until(lambda: app.player_id is not None, pilot, message="host join")
             self.assertEqual(len(self.session.state.players), 1)
 
