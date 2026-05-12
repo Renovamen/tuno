@@ -1,6 +1,6 @@
 {
     "name": "tuno",
-    "version": "0.1.2",
+    "version": "0.1.3",
     "private": true,
     "scripts": {
         "bump": "uv run python scripts/bump_version.py",
