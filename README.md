@@ -57,7 +57,7 @@ uv run pywrangler deploy
 &nbsp;
 ## How to play
 
-Start Tuno client app:
+Start the Tuno client app:
 
 ```bash
 tuno
@@ -65,18 +65,21 @@ tuno
 
 ### Commands
 
-**Note:** You can always type `Tab` to autocomplete the current command.
+**Note:** You can always press `Tab` to autocomplete the current command.
 
-- `/server <server>`: Connect to a server.
+**Lobby:**
+- `/server <server>`: Connect to the specified server.
 - `/server`: Show and select saved servers.
-- `/connect <name>`: Join the server.
+- `/connect <name>`: Join the room (after connecting to a server).
 - `/start`: The host starts the round.
+- `/exit`: Quit Tuno.
+
+**Gameplay:**
 - `/play <n>`: Play the numbered card shown in your hand.
 - `/play <n> [color]`: Play a wild card and choose its color.
 - `/draw`: Draw one card.
 - `/pass`: Pass after drawing, when allowed.
 - `/uno`: Arm UNO for your next play.
-- `/exit`: Quit.
 
 ### Notable rules
 
