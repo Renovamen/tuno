@@ -31,7 +31,7 @@ python -m pip install -e ".[build]"
 Start the server:
 
 ```bash
-python -m tuno.server.local --host 127.0.0.1 --port 8765
+python -m tuno.server --host 127.0.0.1 --port 8765
 ```
 
 Start the client:

@@ -17,8 +17,8 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 from tuno.client.api import ClientAPI
-from tuno.server.local import handler, run_server
 from tuno.server.session import GameSession
+from tuno.server.standalone import handler, run_server
 
 
 def get_free_port() -> int:
@@ -29,7 +29,7 @@ def get_free_port() -> int:
 
 
 class ServerClientConnectionTests(unittest.IsolatedAsyncioTestCase):
-    """Cover the websocket handshake between the local server and client API."""
+    """Cover the websocket handshake between the standalone server and client API."""
 
     async def next_event_of_type(self, events, expected_type: str, *, timeout: float = 2.0) -> dict:
         """Read from the event stream until the expected message type arrives."""
@@ -43,7 +43,7 @@ class ServerClientConnectionTests(unittest.IsolatedAsyncioTestCase):
                 return event
 
     async def asyncSetUp(self) -> None:
-        """Start a fresh local websocket server for each integration test."""
+        """Start a fresh standalone websocket server for each integration test."""
         try:
             self.port = get_free_port()
         except PermissionError as exc:  # pragma: no cover - sandbox-specific
@@ -55,7 +55,7 @@ class ServerClientConnectionTests(unittest.IsolatedAsyncioTestCase):
         await asyncio.sleep(0.1)
 
     async def asyncTearDown(self) -> None:
-        """Stop the local websocket server after each integration test."""
+        """Stop the standalone websocket server after each integration test."""
         self.server_task.cancel()
         with contextlib.suppress(asyncio.CancelledError):
             await self.server_task

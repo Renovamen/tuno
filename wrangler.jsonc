@@ -1,7 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "tuno",
-  "main": "src/tuno/cloudflare/worker.py",
+  "main": "src/tuno/server/worker.py",
   "base_dir": "src",
   "compatibility_date": "2026-05-12",
   "compatibility_flags": ["python_workers"],

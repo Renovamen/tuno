@@ -37,12 +37,12 @@ async def run_server(host: str, port: int, session: Optional[GameSession] = None
 
     active_session = session or GameSession()
     async with serve(lambda websocket: handler(websocket, active_session), host, port):
-        LOGGER.info("tuno local server listening on ws://%s:%s", host, port)
+        LOGGER.info("tuno standalone server listening on ws://%s:%s", host, port)
         await asyncio.Future()
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Run the tuno local WebSocket server.")
+    parser = argparse.ArgumentParser(description="Run the tuno standalone WebSocket server.")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8765)
     args = parser.parse_args()

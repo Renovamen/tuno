@@ -36,7 +36,7 @@ dev = [
 
 [project.scripts]
 tuno = "tuno.client.__main__:main"
-tuno-server = "tuno.server.local:main"
+tuno-server = "tuno.server.__main__:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
