@@ -6,6 +6,7 @@
         "bump": "uv run python scripts/bump_version.py",
         "deploy": "uv run pywrangler deploy",
         "dev": "uv run pywrangler dev",
+        "tag": "sh scripts/tag.sh",
         "start": "uv run pywrangler dev"
     }
 }

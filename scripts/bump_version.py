@@ -6,6 +6,7 @@ import json
 import re
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 
@@ -35,6 +36,11 @@ def parse_args() -> argparse.Namespace:
         "--no-lock",
         action="store_true",
         help="Skip `uv lock` after updating the version files.",
+    )
+    parser.add_argument(
+        "--print-tag",
+        action="store_true",
+        help="Print the release tag for the new version instead of a version summary.",
     )
     return parser.parse_args()
 
@@ -80,12 +86,16 @@ def write_package_json(version: str) -> None:
     PACKAGE_JSON_FILE.write_text(f"{json.dumps(package_json, indent=4)}\n", encoding="utf-8")
 
 
+def release_tag(version: str) -> str:
+    return f"v{version}"
+
+
 def refresh_lockfile() -> None:
     uv = shutil.which("uv")
     if uv is None:
         raise SystemExit("`uv` is required to refresh uv.lock. Re-run with `--no-lock` if needed.")
 
-    subprocess.run([uv, "lock"], cwd=REPO_ROOT, check=True)
+    subprocess.run([uv, "lock"], cwd=REPO_ROOT, check=True, stdout=sys.stderr)
 
 
 def main() -> None:
@@ -99,7 +109,10 @@ def main() -> None:
     if not args.no_lock:
         refresh_lockfile()
 
-    print(f"{current} -> {next_version}")
+    if args.print_tag:
+        print(release_tag(next_version))
+    else:
+        print(f"{current} -> {next_version}")
 
 
 if __name__ == "__main__":

@@ -31,6 +31,10 @@ class VersioningTests(unittest.TestCase):
         self.assertEqual(bump_version.resolve_next_version("0.1.1", "major"), "1.0.0")
         self.assertEqual(bump_version.resolve_next_version("0.1.1", "0.5.0"), "0.5.0")
 
+    def test_release_tag_uses_github_release_prefix(self) -> None:
+        bump_version = load_bump_version_module()
+        self.assertEqual(bump_version.release_tag("0.1.2"), "v0.1.2")
+
 
 if __name__ == "__main__":
     unittest.main()
