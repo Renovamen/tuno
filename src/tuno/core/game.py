@@ -99,7 +99,7 @@ class GameState:
 
     def add_player(self, name: str) -> str:
         """Add a player to the lobby and return the stable player identifier."""
-        if self.started:
+        if self.started and not self.finished:
             raise GameError("Game already started.")
 
         if len(self.players) >= MAX_PLAYERS:

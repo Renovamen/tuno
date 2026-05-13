@@ -149,3 +149,29 @@ class GameStateTests(unittest.TestCase):
 
         game.play_card(alice.player_id, len(alice.hand) - 1)
         self.assertFalse(game.has_drawn_this_turn)
+
+    def test_add_player_allowed_after_round_finishes(self) -> None:
+        """Permit a new player to join once the round is over."""
+        game = self.make_started_game()
+        host_id = game.players[0].player_id
+
+        game.players[0].hand = [Card("red", "5")]
+        game.discard_pile = [Card("red", "1")]
+        game.current_color = "red"
+        game.current_player_index = 0
+        game.play_card(host_id, 0)
+
+        self.assertTrue(game.finished)
+
+        new_id = game.add_player("Charlie")
+        self.assertIn(new_id, [p.player_id for p in game.players])
+
+    def test_add_player_blocked_while_round_in_progress(self) -> None:
+        """Reject a join attempt while the round is still running."""
+        game = self.make_started_game()
+        self.assertTrue(game.started)
+        self.assertFalse(game.finished)
+
+        with self.assertRaises(GameError) as ctx:
+            game.add_player("Charlie")
+        self.assertIn("already started", str(ctx.exception))
