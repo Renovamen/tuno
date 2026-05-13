@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Iterable, List, Optional
 
 from rich.console import RenderableType
 from rich.markup import escape
@@ -18,8 +18,11 @@ CARD_COLORS = {
 }
 
 _LOBBY_EVENT_SUBSTRINGS = ("joined the lobby", "left the lobby")
-_UNO_ARMED_SUFFIX = "armed UNO."
-_ROUND_WIN_SUFFIX = "wins the round!"
+_IMPORTANT_ACTIVITY_SUFFIXES = (
+    "armed UNO.",
+    "wins the round!",
+    "wins by default!",
+)
 
 
 def role_label(state: Dict[str, Any]) -> str:
@@ -58,12 +61,19 @@ def top_card_markup(card: Dict[str, Any], current_color: Optional[str]) -> str:
 
 def recent_activity_markup(event: str) -> str:
     """Add light presentation formatting to recent activity without changing semantics."""
-    rendered = event
-    if rendered.endswith(_UNO_ARMED_SUFFIX):
-        rendered = f"[bold]{rendered}[/]"
-    elif rendered.endswith(_ROUND_WIN_SUFFIX):
-        rendered = f"[bold]{rendered}[/]"
-    return rendered
+    if event.endswith(_IMPORTANT_ACTIVITY_SUFFIXES):
+        return f"[bold]{event}[/]"
+    return event
+
+
+def _is_lobby_event(event: str) -> bool:
+    """Return whether an activity event belongs to the lobby feed."""
+    return any(substring in event for substring in _LOBBY_EVENT_SUBSTRINGS)
+
+
+def _game_activity_events(events: Iterable[Any]) -> List[str]:
+    """Return activity events that should appear in the in-game feed."""
+    return [event for event in map(str, events) if not _is_lobby_event(event)]
 
 
 def player_table(state: Dict[str, Any]) -> RenderableType:
@@ -156,7 +166,7 @@ def render_recent_activity_body(state: Dict[str, Any]) -> str:
     """Render the recent-activity section body."""
     events = state.get("recent_events") or []
 
-    game_events = [str(e) for e in events if not any(kw in e for kw in _LOBBY_EVENT_SUBSTRINGS)]
+    game_events = _game_activity_events(events)
     recent = [recent_activity_markup(event) for event in game_events[-20:][::-1]]
     recent_lines = recent or ["No game events yet."]
     return "\n".join(recent_lines)

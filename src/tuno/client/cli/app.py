@@ -13,7 +13,9 @@ app = typer.Typer(help="Tuno - a terminal-first UNO game.", invoke_without_comma
 @app.callback()
 def main(
     ctx: typer.Context,
-    server: str | None = typer.Option(None, "-s", "--server", help="ws:// or wss:// server URL to connect on startup."),
+    server: str | None = typer.Option(
+        None, "-s", "--server", help="ws:// or wss:// server URL to connect on startup."
+    ),
 ) -> None:
     if ctx.invoked_subcommand is None:
         run_client(server_url=server or "")

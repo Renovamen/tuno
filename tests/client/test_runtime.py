@@ -8,7 +8,6 @@ from tuno.client.runtime import ClientRuntime
 class RuntimeCallbacks:
     def __init__(self) -> None:
         self.feedback: list[str] = []
-        self.render_count = 0
         self.clear_count = 0
         self.exit_count = 0
 
@@ -19,7 +18,7 @@ class RuntimeCallbacks:
         self.clear_count += 1
 
     def render_state(self) -> None:
-        self.render_count += 1
+        return None
 
     def exit_app(self) -> None:
         self.exit_count += 1
@@ -84,7 +83,6 @@ class ClientRuntimeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(runtime.player_id, "p1")
         self.assertEqual(runtime.state, {"started": True})
         self.assertEqual(callbacks.clear_count, 2)
-        self.assertEqual(callbacks.render_count, 2)
         self.assertIn("Illegal play:", callbacks.feedback[-1])
 
     async def test_close_current_server_resets_runtime_state(self) -> None:

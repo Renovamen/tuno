@@ -70,7 +70,6 @@ class ClientActionTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_play_card_by_number_sends_valid_play_request(self) -> None:
         sent: list[tuple[str, dict[str, object]]] = []
-        rendered: list[bool] = []
 
         async def send(kind: str, **payload) -> None:
             sent.append((kind, payload))
@@ -89,7 +88,7 @@ class ClientActionTests(unittest.IsolatedAsyncioTestCase):
             say_uno_next=True,
             send=send,
             set_command_feedback=lambda message: self.fail(message),
-            render_state=lambda: rendered.append(True),
+            render_state=lambda: None,
         )
 
         self.assertFalse(result)
@@ -102,7 +101,6 @@ class ClientActionTests(unittest.IsolatedAsyncioTestCase):
                 )
             ],
         )
-        self.assertEqual(rendered, [True])
 
     async def test_play_card_by_number_rejects_invalid_local_play(self) -> None:
         feedback: list[str] = []

@@ -76,7 +76,9 @@ class GameRoundFlowTests(unittest.TestCase):
         self.assertFalse(game.finished)
         self.assertIsNone(game.winner_id)
         self.assertEqual(game.status_message, "Game started.")
-        self.assertEqual(game.recent_events, ["Game started."])
+        self.assertEqual(len(game.recent_events), 2)
+        self.assertEqual(game.recent_events[0], "Game started.")
+        self.assertTrue(game.recent_events[1].startswith("Starting card: "))
         self.assertTrue(all(len(player.hand) == 7 for player in game.players))
 
     def test_disconnect_during_round_keeps_game_running_when_two_players_remain(self) -> None:

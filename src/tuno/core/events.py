@@ -28,6 +28,11 @@ def game_started() -> str:
     return "Game started."
 
 
+def initial_card(card_markup: str) -> str:
+    """Return the event text for the first card revealed at the start of a round."""
+    return f"Starting card: {card_markup}."
+
+
 def played_card(name: str, card_markup: str) -> str:
     """Return the event text for a successful card play."""
     return f"{escape(name)} played {card_markup}."

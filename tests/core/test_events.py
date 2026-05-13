@@ -9,6 +9,7 @@ from tuno.core.events import (
     escape,
     forgot_uno,
     game_started,
+    initial_card,
     lobby_joined,
     lobby_waiting,
     played_card,
@@ -35,6 +36,7 @@ class GameEventTextTests(unittest.TestCase):
     def test_play_and_penalty_text_helpers_match_current_event_style(self) -> None:
         """Preserve compact event wording used by activity logs."""
         self.assertEqual(game_started(), "Game started.")
+        self.assertEqual(initial_card("[bold red]R:5[/]"), "Starting card: [bold red]R:5[/].")
         self.assertIn("played", played_card("alice", "[bold red]R:5[/]"))
         self.assertIn("forgot UNO", forgot_uno("alice"))
         self.assertIn("drew 4", effect_drew_cards("bob", 4))

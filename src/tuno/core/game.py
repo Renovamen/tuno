@@ -15,6 +15,7 @@ from tuno.core.events import (
     effect_drew_cards,
     forgot_uno,
     game_started,
+    initial_card,
     lobby_joined,
     lobby_left,
     lobby_waiting,
@@ -208,7 +209,10 @@ class GameState:
         self.has_drawn_this_turn = False
         self.drawn_card = None
         self.status_message = game_started()
-        self.recent_events = [self.status_message]
+        self.recent_events = [
+            self.status_message,
+            initial_card(self.top_card.event_markup()),
+        ]
 
     def play_card(
         self,
