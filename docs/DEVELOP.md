@@ -38,12 +38,7 @@ Start the client:
 
 ```bash
 python -m tuno.client
-```
-
-Then connect from inside the TUI:
-
-```text
-/server ws://127.0.0.1:8765
+python -m tuno.client --server ws://127.0.0.1:8765 # Start with a preconfigured server, so you do not need to enter it in the TUI
 ```
 
 &nbsp;
@@ -70,14 +65,14 @@ If you change the Durable Object class name or add more Durable Objects later, u
 
 ```bash
 python -m unittest discover -s tests -v
-python -m ruff check .
-python -m ruff format --check .
 ```
 
 &nbsp;
-## Lint
+## Lint & Formatting
 
 ```bash
+python -m ruff check . # Run lint checks
+python -m ruff format --check . # Check formatting
 python -m ruff format .
 ```
 

@@ -2,7 +2,7 @@
 
 A terminal-first UNO game.
 
-![screenshot](./assets/screenshot.png)
+![screenshot](./docs/assets/screenshot.png)
 
 ## Client 
 
@@ -102,4 +102,4 @@ tuno
 &nbsp;
 ## Development
 
-Check [DEVELOP.md](DEVELOP.md) for development instructions.
+Check [DEVELOP.md](docs/DEVELOP.md) for development instructions.

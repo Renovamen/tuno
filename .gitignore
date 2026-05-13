@@ -8,7 +8,7 @@ python_modules/
 .codex/
 .agents/
 .claude/
-AGENTS.md
+agent_docs/omx.md
 skills-lock.json
 
 # Byte-compiled / optimized / DLL files
