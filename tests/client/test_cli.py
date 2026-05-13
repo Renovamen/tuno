@@ -3,31 +3,46 @@ from __future__ import annotations
 import unittest
 from unittest.mock import Mock, patch
 
-from tuno.client import __main__ as client_main
+from typer.testing import CliRunner
+
+from tuno import __version__
+from tuno.client.cli.app import app
 from tuno.client.cli.update import cli_self_update
+
+runner = CliRunner()
 
 
 class ClientCliEntrypointTests(unittest.TestCase):
     """Cover CLI dispatch without starting the Textual app or installer."""
 
-    @patch("tuno.client.__main__.run_client")
-    def test_main_launches_client_with_optional_server(self, run_client) -> None:
-        client_main.main(["--server", "wss://example.test"])
+    @patch("tuno.client.cli.app.run_client")
+    def test_main_launches_client_without_server(self, run_client) -> None:
+        result = runner.invoke(app, [])
 
+        self.assertEqual(result.exit_code, 0)
+        run_client.assert_called_once_with(server_url="")
+
+    @patch("tuno.client.cli.app.run_client")
+    def test_main_launches_client_with_optional_server(self, run_client) -> None:
+        result = runner.invoke(app, ["--server", "wss://example.test"])
+
+        self.assertEqual(result.exit_code, 0)
         run_client.assert_called_once_with(server_url="wss://example.test")
 
-    @patch("tuno.client.__main__.run_client")
+    @patch("tuno.client.cli.app.run_client")
     def test_main_supports_short_server_flag(self, run_client) -> None:
-        client_main.main(["-s", "ws://example.test"])
+        result = runner.invoke(app, ["-s", "ws://example.test"])
 
+        self.assertEqual(result.exit_code, 0)
         run_client.assert_called_once_with(server_url="ws://example.test")
 
-    @patch("tuno.client.__main__.cli_self_update")
-    @patch("tuno.client.__main__.run_client")
-    def test_main_dispatches_update_command(self, run_client, cli_self_update) -> None:
-        client_main.main(["update"])
+    @patch("tuno.client.cli.app.cli_self_update")
+    @patch("tuno.client.cli.app.run_client")
+    def test_main_dispatches_update_command(self, run_client, mock_self_update) -> None:
+        result = runner.invoke(app, ["update"])
 
-        cli_self_update.assert_called_once_with(client_main.__version__)
+        self.assertEqual(result.exit_code, 0)
+        mock_self_update.assert_called_once_with(__version__)
         run_client.assert_not_called()
 
 
