@@ -470,6 +470,12 @@ worker = [
     { name = "workers-runtime-sdk" },
 ]
 
+[package.dev-dependencies]
+dev = [
+    { name = "workers-py" },
+    { name = "workers-runtime-sdk" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "certifi", specifier = ">=2024.0.0" },
@@ -483,6 +489,12 @@ requires-dist = [
     { name = "workers-runtime-sdk", marker = "extra == 'worker'" },
 ]
 provides-extras = ["dev", "worker", "build"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "workers-py" },
+    { name = "workers-runtime-sdk" },
+]
 
 [[package]]
 name = "typer"

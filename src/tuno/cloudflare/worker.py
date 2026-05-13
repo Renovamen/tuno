@@ -8,7 +8,6 @@ The pure Python game engine remains the source of truth for rules.
 from __future__ import annotations
 
 import json
-from typing import Optional
 from urllib.parse import parse_qs, urlparse
 
 from workers import DurableObject, Response, WorkerEntrypoint
@@ -17,6 +16,9 @@ from tuno.core.cards import Card
 from tuno.core.game import MAX_PLAYERS, GameError, GameState, PlayerState
 from tuno.protocol.messages import MAX_MESSAGE_SIZE, ProtocolError, decode_client_message
 from tuno.server.actions import apply_action
+
+DEFAULT_GAME_ID = "default-game"
+OPEN_WEBSOCKET_STATE = 1
 
 
 class TunoGame(DurableObject):
@@ -111,7 +113,7 @@ class TunoGame(DurableObject):
             except Exception:
                 continue
 
-    def _player_id_for(self, websocket) -> Optional[str]:
+    def _player_id_for(self, websocket) -> str | None:
         """Look up the player id stored on a hibernatable websocket attachment."""
         attachment = websocket.deserializeAttachment()
         if not attachment:
@@ -244,13 +246,17 @@ class TunoGame(DurableObject):
 
     def _open_websockets(self) -> list:
         """Return only currently open Durable Object websockets."""
-        return [ws for ws in self.ctx.getWebSockets() if getattr(ws, "readyState", 0) == 1]
+        return [
+            ws
+            for ws in self.ctx.getWebSockets()
+            if getattr(ws, "readyState", 0) == OPEN_WEBSOCKET_STATE
+        ]
 
 
 class Default(WorkerEntrypoint):
     async def fetch(self, request):
         url = request.url if hasattr(request, "url") else str(request)
         query = parse_qs(urlparse(url).query)
-        game_id = query.get("game", ["default-game"])[0] or "default-game"
-        stub = self.env.TUNO_GAME.get(self.env.TUNO_GAME.idFromName(game_id))
+        game_id = query.get("game", [DEFAULT_GAME_ID])[0] or DEFAULT_GAME_ID
+        stub = self.env.TUNO_GAME.getByName(game_id)
         return await stub.fetch(request)

@@ -28,6 +28,12 @@ build = [
     "pyinstaller>=6,<7",
 ]
 
+[dependency-groups]
+dev = [
+    "workers-py",
+    "workers-runtime-sdk",
+]
+
 [project.scripts]
 tuno = "tuno.client.__main__:main"
 tuno-server = "tuno.server.local:main"

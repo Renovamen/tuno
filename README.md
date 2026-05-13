@@ -48,11 +48,13 @@ If you want to deploy your own server, check the following.
 ```bash
 git clone https://github.com/Renovamen/tuno.git
 cd tuno
-uv run pywrangler deploy
+uvx --from workers-py pywrangler deploy
 ```
 
 **Option 2:** Fork this repo and import the fork into your
 [Cloudflare dashboard](https://developers.cloudflare.com/workers/get-started/dashboard/).
+
+In "Build configuration", leave "Build command" empty and set "Deploy command" to `uv run pywrangler deploy`.
 
 &nbsp;
 ## How to play
