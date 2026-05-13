@@ -35,7 +35,7 @@ dev = [
 ]
 
 [project.scripts]
-tuno = "tuno.client.__main__:main"
+tuno = "tuno.client.__main__:app"
 tuno-server = "tuno.server.__main__:main"
 
 [tool.setuptools]

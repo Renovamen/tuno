@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from tuno.client.__main__ import main
+from tuno.client.__main__ import app
 
 if __name__ == "__main__":
-    main()
+    app()
