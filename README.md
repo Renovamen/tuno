@@ -27,8 +27,10 @@ tuno update
 #### Uninstall
 
 ```bash
-rm -rf ~/.local/share/tuno ~/.local/bin/tuno ~/.config/tuno
+tuno uninstall
 ```
+
+This removes `~/.local/share/tuno` and `~/.local/bin/tuno`, and can optionally remove `~/.config/tuno`.
 
 &nbsp;
 ## Server
@@ -52,9 +54,7 @@ uvx --from workers-py pywrangler deploy
 ```
 
 **Option 2:** Fork this repo and import the fork into your
-[Cloudflare dashboard](https://developers.cloudflare.com/workers/get-started/dashboard/).
-
-In "Build configuration", leave "Build command" empty and set "Deploy command" to `uv run pywrangler deploy`.
+[Cloudflare dashboard](https://developers.cloudflare.com/workers/get-started/dashboard/). In "Build configuration", leave "Build command" empty and set "Deploy command" to `uv run pywrangler deploy`.
 
 &nbsp;
 ## How to play

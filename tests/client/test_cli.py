@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import unittest
+from pathlib import Path
 from unittest.mock import Mock, patch
 
 from typer.testing import CliRunner
 
 from tuno import __version__
 from tuno.client.cli.app import app
+from tuno.client.cli.uninstall import cli_uninstall
 from tuno.client.cli.update import cli_self_update
 
 runner = CliRunner()
@@ -43,6 +45,15 @@ class ClientCliEntrypointTests(unittest.TestCase):
 
         self.assertEqual(result.exit_code, 0)
         mock_self_update.assert_called_once_with(__version__)
+        run_client.assert_not_called()
+
+    @patch("tuno.client.cli.app.cli_uninstall")
+    @patch("tuno.client.cli.app.run_client")
+    def test_main_dispatches_uninstall_command(self, run_client, mock_uninstall) -> None:
+        result = runner.invoke(app, ["uninstall"])
+
+        self.assertEqual(result.exit_code, 0)
+        mock_uninstall.assert_called_once_with()
         run_client.assert_not_called()
 
 
@@ -82,3 +93,36 @@ class ClientSelfUpdateCommandTests(unittest.TestCase):
         self.assertFalse(updated)
         fetch_install_script.assert_not_called()
         run_install_script.assert_not_called()
+
+
+class ClientUninstallCommandTests(unittest.TestCase):
+    """Cover file removal behavior for the `tuno uninstall` command."""
+
+    def test_cli_uninstall_removes_install_files_and_keeps_config_when_declined(self) -> None:
+        with runner.isolated_filesystem():
+            home = Path.cwd()
+            install_dir = home / ".local" / "share" / "tuno"
+            bin_file = home / ".local" / "bin" / "tuno"
+            config_dir = home / ".config" / "tuno"
+            install_dir.mkdir(parents=True)
+            bin_file.parent.mkdir(parents=True)
+            bin_file.write_text("#!/bin/sh\n", encoding="utf-8")
+            config_dir.mkdir(parents=True)
+
+            removed = cli_uninstall(home=home, confirm=lambda _prompt: False, echo=Mock())
+
+            self.assertTrue(removed)
+            self.assertFalse(install_dir.exists())
+            self.assertFalse(bin_file.exists())
+            self.assertTrue(config_dir.exists())
+
+    def test_cli_uninstall_removes_config_when_confirmed(self) -> None:
+        with runner.isolated_filesystem():
+            home = Path.cwd()
+            config_dir = home / ".config" / "tuno"
+            config_dir.mkdir(parents=True)
+
+            removed = cli_uninstall(home=home, confirm=lambda _prompt: True, echo=Mock())
+
+            self.assertTrue(removed)
+            self.assertFalse(config_dir.exists())

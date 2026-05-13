@@ -3,6 +3,7 @@
 import typer
 
 from tuno import __version__
+from tuno.client.cli.uninstall import cli_uninstall
 from tuno.client.cli.update import cli_self_update
 from tuno.client.tui.app import run_client
 
@@ -22,3 +23,9 @@ def main(
 def update() -> None:
     """Update the installed tuno client."""
     cli_self_update(__version__)
+
+
+@app.command()
+def uninstall() -> None:
+    """Uninstall the tuno client."""
+    cli_uninstall()
