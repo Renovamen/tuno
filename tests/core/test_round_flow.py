@@ -27,7 +27,7 @@ class GameRoundFlowTests(unittest.TestCase):
         """Advance past the next player after a skip card resolves."""
         game = self.make_game()
         game.players[0].hand = [Card("red", "skip"), Card("green", "5")]
-        game.discard_pile = [Card("red", "1")]
+        game._deck.discard_pile = [Card("red", "1")]
         game.current_color = "red"
         game.current_player_index = 0
 
@@ -39,7 +39,7 @@ class GameRoundFlowTests(unittest.TestCase):
         """Apply the missing-UNO penalty before the turn advances."""
         game = self.make_game()
         game.players[0].hand = [Card("red", "5"), Card("green", "2")]
-        game.discard_pile = [Card("red", "1")]
+        game._deck.discard_pile = [Card("red", "1")]
         game.current_color = "red"
         game.current_player_index = 0
 
@@ -52,7 +52,7 @@ class GameRoundFlowTests(unittest.TestCase):
         """Finish the round immediately when a player empties their hand."""
         game = self.make_game()
         game.players[0].hand = [Card("red", "5")]
-        game.discard_pile = [Card("red", "1")]
+        game._deck.discard_pile = [Card("red", "1")]
         game.current_color = "red"
         game.current_player_index = 0
 
@@ -65,7 +65,7 @@ class GameRoundFlowTests(unittest.TestCase):
         """Allow the host to start a fresh round after the previous one finishes."""
         game = self.make_game()
         game.players[0].hand = [Card("red", "5")]
-        game.discard_pile = [Card("red", "1")]
+        game._deck.discard_pile = [Card("red", "1")]
         game.current_color = "red"
         game.current_player_index = 0
 
@@ -135,7 +135,7 @@ class GameRoundFlowTests(unittest.TestCase):
         """Store wild-play activity using the selected color."""
         game = self.make_game()
         game.players[0].hand = [Card(None, "wild"), Card("green", "1")]
-        game.discard_pile = [Card("blue", "4")]
+        game._deck.discard_pile = [Card("blue", "4")]
         game.current_color = "blue"
         game.current_player_index = 0
 
@@ -155,7 +155,7 @@ class GameRoundFlowTests(unittest.TestCase):
             Card("red", "3"),
         ]
         game.players[1].hand = [Card("blue", "4"), Card("yellow", "6"), Card("blue", "7")]
-        game.discard_pile = [Card("green", "9")]
+        game._deck.discard_pile = [Card("green", "9")]
         game.current_color = "green"
         game.current_player_index = 0
 

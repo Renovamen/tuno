@@ -6,7 +6,7 @@ import time
 from dataclasses import dataclass, field
 from typing import List, Optional
 
-from tuno.core.cards import COLORS, Card, build_classic_deck
+from tuno.core.cards import COLORS, Card, Deck
 from tuno.core.events import (
     disconnect_game_ended,
     disconnect_turn_passed,
@@ -73,8 +73,6 @@ class GameState:
     winner_id: Optional[str] = None
     current_player_index: int = 0
     direction: int = 1
-    draw_pile: List[Card] = field(default_factory=list)
-    discard_pile: List[Card] = field(default_factory=list)
     current_color: Optional[str] = None
     status_message: str = lobby_waiting()
     recent_events: List[str] = field(default_factory=lambda: [lobby_waiting()])
@@ -83,13 +81,13 @@ class GameState:
     _next_player_serial: int = 1
 
     def __post_init__(self) -> None:
-        """Initialize the deterministic PRNG after dataclass construction."""
-        self._rng = LcgRandom(self.seed)
+        """Initialize the deck with a seeded PRNG after dataclass construction."""
+        self._deck = Deck(LcgRandom(self.seed))
 
     @property
     def top_card(self) -> Optional[Card]:
         """Expose the visible discard top for rule checks and snapshots."""
-        return self.discard_pile[-1] if self.discard_pile else None
+        return self._deck.top_card
 
     @property
     def current_player(self) -> Optional[PlayerState]:
@@ -185,22 +183,9 @@ class GameState:
             raise GameError("Only the host can start the game.")
 
         self.winner_id = None
-        self.draw_pile = build_classic_deck(self._rng)
-        self.discard_pile = []
-
-        for player in self.players:
-            player.hand = [self.draw_pile.pop() for _ in range(7)]
-
-        # Keep wild cards out of the opening discard so the starting color is unambiguous.
-        while self.draw_pile:
-            card = self.draw_pile.pop()
-
-            if not card.is_wild():
-                self.discard_pile.append(card)
-                self.current_color = card.color
-                break
-
-            self.draw_pile.insert(0, card)
+        self._deck.reset()
+        self._deck.deal(self.players)
+        self.current_color = self._deck.setup_opening_discard()
 
         self.started = True
         self.finished = False
@@ -261,7 +246,7 @@ class GameState:
             )
 
         played = player.hand.pop(hand_index)
-        self.discard_pile.append(played)
+        self._deck.discard_pile.append(played)
         self.current_color = chosen_color
         self.status_message = played_card(
             player.name, played.event_markup(display_color=chosen_color)
@@ -269,7 +254,7 @@ class GameState:
 
         # The server remains the source of truth for the immediate UNO penalty.
         if len(player.hand) == 1 and not say_uno:
-            self._draw_to_hand(player, 2)
+            self._deck.draw_to_hand(player, 2)
             self.status_message += forgot_uno(player.name)
 
         if not player.hand:
@@ -293,7 +278,7 @@ class GameState:
         player = self.current_player
         assert player is not None
 
-        card = self._draw_one()
+        card = self._deck.draw_one()
         player.hand.append(card)
         self.status_message = drew_card(player.name)
 
@@ -340,12 +325,12 @@ class GameState:
             return 0
         if card.rank == "draw_two":
             target = self._peek_next_player(steps=1)
-            self._draw_to_hand(target, 2)
+            self._deck.draw_to_hand(target, 2)
             self.status_message += effect_drew_cards(target.name, 2)
             return 1
         if card.rank == "wild_draw_four":
             target = self._peek_next_player(steps=1)
-            self._draw_to_hand(target, 4)
+            self._deck.draw_to_hand(target, 4)
             self.status_message += effect_drew_cards(target.name, 4)
             return 1
         return 0
@@ -365,23 +350,6 @@ class GameState:
         """Look ahead in turn order without mutating the active player pointer."""
         index = (self.current_player_index + self.direction * steps) % len(self.players)
         return self.players[index]
-
-    def _draw_one(self) -> Card:
-        """Draw one card, recycling the discard pile if the draw pile is exhausted."""
-        if not self.draw_pile:
-            if len(self.discard_pile) <= 1:
-                raise GameError("No cards left to draw.")
-            # Preserve the visible top discard and reshuffle only the hidden history.
-            top = self.discard_pile.pop()
-            self.draw_pile = self.discard_pile[:]
-            self.discard_pile = [top]
-            self._rng.shuffle(self.draw_pile)
-        return self.draw_pile.pop()
-
-    def _draw_to_hand(self, player: PlayerState, amount: int) -> None:
-        """Append multiple freshly drawn cards to a player's hand."""
-        for _ in range(amount):
-            player.hand.append(self._draw_one())
 
     def _ensure_active_player(self, player_id: str) -> None:
         """Reject actions that do not come from the current legal actor."""
@@ -424,8 +392,7 @@ class GameState:
         self.winner_id = None
         self.current_player_index = 0
         self.direction = 1
-        self.draw_pile = []
-        self.discard_pile = []
+        self._deck.clear()
         self.current_color = None
         self.has_drawn_this_turn = False
         self.drawn_card = None

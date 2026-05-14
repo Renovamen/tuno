@@ -35,7 +35,7 @@ class GameSnapshotTests(unittest.TestCase):
         game.start(alice)
         game.players[0].hand = [Card("red", "5")]
         game.players[1].hand = [Card("blue", "2")]
-        game.discard_pile = [Card("red", "1")]
+        game._deck.discard_pile = [Card("red", "1")]
         game.current_color = "red"
         game.current_player_index = 0
         game.play_card(alice, 0, say_uno=True)

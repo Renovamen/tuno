@@ -64,10 +64,10 @@ class ClientAppFlowTests(ClientAppHarness):
                 Card("green", "1"),
             ]
             game.players[1].hand = [Card("yellow", "2"), Card("green", "4")]
-            game.discard_pile = [Card("red", "1")]
+            game._deck.discard_pile = [Card("red", "1")]
             game.current_color = "red"
             game.current_player_index = 0
-            game.draw_pile = [Card("blue", "9"), Card("yellow", "8")]
+            game._deck.draw_pile = [Card("blue", "9"), Card("yellow", "8")]
             game.has_drawn_this_turn = False
             game.drawn_card = None
             game.status_message = "Play scenario ready."
@@ -93,9 +93,9 @@ class ClientAppFlowTests(ClientAppHarness):
             game.current_player_index = 0
             game.players[0].hand = [Card(None, "wild"), Card("green", "1")]
             game.players[1].hand = [Card("yellow", "2"), Card("green", "4")]
-            game.discard_pile = [Card("blue", "9")]
+            game._deck.discard_pile = [Card("blue", "9")]
             game.current_color = "blue"
-            game.draw_pile = [Card("red", "3"), Card("yellow", "9")]
+            game._deck.draw_pile = [Card("red", "3"), Card("yellow", "9")]
             game.has_drawn_this_turn = False
             game.drawn_card = None
             game.status_message = "Wild scenario ready."
@@ -118,9 +118,9 @@ class ClientAppFlowTests(ClientAppHarness):
             game.current_player_index = 0
             game.players[0].hand = [Card("blue", "7"), Card("green", "1")]
             game.players[1].hand = [Card("yellow", "2"), Card("green", "4")]
-            game.discard_pile = [Card("yellow", "1")]
+            game._deck.discard_pile = [Card("yellow", "1")]
             game.current_color = "yellow"
-            game.draw_pile = [Card("red", "3"), Card("yellow", "9")]
+            game._deck.draw_pile = [Card("red", "3"), Card("yellow", "9")]
             game.has_drawn_this_turn = False
             game.drawn_card = None
             game.status_message = "Draw scenario ready."
@@ -134,10 +134,10 @@ class ClientAppFlowTests(ClientAppHarness):
             # Step 6: Seed the one-card-after-play UNO path before arming UNO.
             game.players[0].hand = [Card("red", "5"), Card("green", "2")]
             game.players[1].hand = [Card("yellow", "2"), Card("green", "4")]
-            game.discard_pile = [Card("red", "1")]
+            game._deck.discard_pile = [Card("red", "1")]
             game.current_color = "red"
             game.current_player_index = 0
-            game.draw_pile = [Card("yellow", "9"), Card("red", "3")]
+            game._deck.draw_pile = [Card("yellow", "9"), Card("red", "3")]
             game.has_drawn_this_turn = False
             game.drawn_card = None
             game.status_message = "UNO scenario ready."

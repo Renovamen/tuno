@@ -62,7 +62,7 @@ class ClientCommandControllerTests(ClientAppHarness):
                 Card("yellow", "2"),
                 Card("green", "4"),
             ]
-            game.discard_pile = [Card("red", "1")]
+            game._deck.discard_pile = [Card("red", "1")]
             game.current_color = "red"
             game.current_player_index = 0
             game.status_message = "Illegal play scenario ready."

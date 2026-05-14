@@ -9,18 +9,8 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from tuno.core.cards import Card, build_classic_deck
+from tuno.core.cards import Card
 from tuno.core.game import GameError, GameState
-
-
-class CardTests(unittest.TestCase):
-    """Cover card/deck behavior owned by the game module tests."""
-
-    def test_build_classic_deck_returns_cards(self) -> None:
-        """Return concrete `Card` instances when building the classic deck."""
-        deck = build_classic_deck()
-        self.assertTrue(deck)
-        self.assertTrue(all(isinstance(card, Card) for card in deck))
 
 
 class GameStateTests(unittest.TestCase):
@@ -58,7 +48,7 @@ class GameStateTests(unittest.TestCase):
         bob = game.players[1]
         alice.hand = [Card("red", "5"), Card(None, "wild_draw_four")]
         bob.hand = [Card("blue", "4")]
-        game.discard_pile = [Card("red", "9")]
+        game._deck.discard_pile = [Card("red", "9")]
         game.current_color = "red"
         game.current_player_index = 0
 
@@ -72,8 +62,8 @@ class GameStateTests(unittest.TestCase):
         bob = game.players[1]
         alice.hand = [Card("red", "5"), Card("blue", "7")]
         bob.hand = [Card("blue", "4"), Card("green", "2")]
-        game.draw_pile = [Card("green", "1"), Card("yellow", "6"), Card("yellow", "2")]
-        game.discard_pile = [Card("red", "9")]
+        game._deck.draw_pile = [Card("green", "1"), Card("yellow", "6"), Card("yellow", "2")]
+        game._deck.discard_pile = [Card("red", "9")]
         game.current_color = "red"
         game.current_player_index = 0
 
@@ -90,8 +80,8 @@ class GameStateTests(unittest.TestCase):
         bob = game.players[1]
         alice.hand = [Card("blue", "5")]
         bob.hand = [Card("green", "3")]
-        game.draw_pile = [Card("yellow", "1"), Card("green", "2")]
-        game.discard_pile = [Card("green", "9")]
+        game._deck.draw_pile = [Card("yellow", "1"), Card("green", "2")]
+        game._deck.discard_pile = [Card("green", "9")]
         game.current_color = "green"
         game.current_player_index = 0
 
@@ -110,7 +100,7 @@ class GameStateTests(unittest.TestCase):
         bob = game.players[1]
         alice.hand = [Card("green", "reverse"), Card("yellow", "3")]
         bob.hand = [Card("green", "5"), Card("blue", "4")]
-        game.discard_pile = [Card("green", "9")]
+        game._deck.discard_pile = [Card("green", "9")]
         game.current_color = "green"
         game.current_player_index = 0
 
@@ -135,8 +125,8 @@ class GameStateTests(unittest.TestCase):
         alice.hand = [Card("green", "2"), Card("green", "2")]
         bob.hand = [Card("blue", "4")]
 
-        game.draw_pile = [Card("yellow", "8"), Card("green", "2")]
-        game.discard_pile = [Card("green", "9")]
+        game._deck.draw_pile = [Card("yellow", "8"), Card("green", "2")]
+        game._deck.discard_pile = [Card("green", "9")]
         game.current_color = "green"
         game.current_player_index = 0
 
@@ -156,7 +146,7 @@ class GameStateTests(unittest.TestCase):
         host_id = game.players[0].player_id
 
         game.players[0].hand = [Card("red", "5")]
-        game.discard_pile = [Card("red", "1")]
+        game._deck.discard_pile = [Card("red", "1")]
         game.current_color = "red"
         game.current_player_index = 0
         game.play_card(host_id, 0)

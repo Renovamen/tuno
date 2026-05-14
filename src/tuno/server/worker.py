@@ -365,15 +365,15 @@ class TunoLobby(DurableObject):
             "winner_id": game.winner_id,
             "current_player_index": game.current_player_index,
             "direction": game.direction,
-            "draw_pile": [card.to_dict() for card in game.draw_pile],
-            "discard_pile": [card.to_dict() for card in game.discard_pile],
+            "draw_pile": [card.to_dict() for card in game._deck.draw_pile],
+            "discard_pile": [card.to_dict() for card in game._deck.discard_pile],
             "current_color": game.current_color,
             "status_message": game.status_message,
             "recent_events": list(game.recent_events),
             "has_drawn_this_turn": game.has_drawn_this_turn,
             "drawn_card": game.drawn_card.to_dict() if game.drawn_card else None,
             "next_player_serial": game._next_player_serial,
-            "rng_state": game._rng.state,
+            "rng_state": game._deck._rng.state,
         }
 
     def _deserialize_game(self, payload: dict) -> GameState:
@@ -392,8 +392,8 @@ class TunoLobby(DurableObject):
         game.winner_id = payload.get("winner_id")
         game.current_player_index = payload.get("current_player_index", 0)
         game.direction = payload.get("direction", 1)
-        game.draw_pile = [Card.from_dict(card) for card in payload.get("draw_pile", [])]
-        game.discard_pile = [Card.from_dict(card) for card in payload.get("discard_pile", [])]
+        game._deck.draw_pile = [Card.from_dict(card) for card in payload.get("draw_pile", [])]
+        game._deck.discard_pile = [Card.from_dict(card) for card in payload.get("discard_pile", [])]
         game.current_color = payload.get("current_color")
         game.status_message = payload.get("status_message", game.status_message)
         game.recent_events = list(payload.get("recent_events", game.recent_events))
@@ -401,7 +401,7 @@ class TunoLobby(DurableObject):
         game.drawn_card = Card.from_dict(drawn_card) if drawn_card else None
         game.has_drawn_this_turn = payload.get("has_drawn_this_turn", False)
         game._next_player_serial = payload.get("next_player_serial", 1)
-        game._rng.state = payload.get("rng_state", game._rng.state)
+        game._deck._rng.state = payload.get("rng_state", game._deck._rng.state)
         return game
 
     def _open_websockets(self) -> list:
