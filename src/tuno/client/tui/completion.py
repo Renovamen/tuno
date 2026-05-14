@@ -57,13 +57,16 @@ def command_candidates(
     *,
     available_commands: Sequence[str],
     card_command_token: str | None = None,
+    connect_command_token: str | None = None,
     command_template_candidate: Callable[[str], Dict[str, str]] | None = None,
     valid_play_colors: Sequence[str] = (),
     hand: Sequence[Dict[str, Any]],
+    rooms: Sequence[Dict[str, Any]] = (),
     current_color: Optional[str] = None,
     top_card: Optional[Dict[str, Any]] = None,
 ) -> List[Dict[str, str]]:
     """Build suggestions for the current raw input and game-visible state."""
+    # Normalize the raw input once, then short-circuit cases that cannot show suggestions.
     template_candidate = command_template_candidate or default_command_template_candidate
     text = raw.strip()
     if not text:
@@ -71,10 +74,12 @@ def command_candidates(
     if not text.startswith("/"):
         return []
 
+    # Keep trailing-space information separate because stripped text loses argument position.
     trailing_space = raw.endswith(" ")
     parts = text.split()
     command = parts[0].lower()
 
+    # For a partially typed command token, show matching commands from the current legal set.
     if len(parts) == 1 and not trailing_space:
         return [
             template_candidate(template)
@@ -107,6 +112,7 @@ def command_candidates(
                     )
             return matches
 
+        # After a card number, only wild cards need a second argument for the chosen color.
         if len(parts) >= 2:
             try:
                 hand_index = int(parts[1]) - 1
@@ -124,6 +130,23 @@ def command_candidates(
                         for color in valid_play_colors
                         if color.startswith(prefix)
                     ]
+
+    # `/connect` suggestions come from the latest room list sent by the server.
+    if (
+        connect_command_token
+        and command == connect_command_token
+        and any(item.split()[0] == connect_command_token for item in available_commands)
+        and ((len(parts) == 1 and trailing_space) or (len(parts) == 2 and not trailing_space))
+    ):
+        prefix = "" if len(parts) == 1 else parts[1]
+        return [
+            {
+                "insert": f"{connect_command_token} {name}",
+                "display": f"{connect_command_token} {name}",
+            }
+            for room in rooms
+            if (name := str(room.get("name", "")).strip()) and name.startswith(prefix)
+        ]
     return []
 
 

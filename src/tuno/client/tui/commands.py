@@ -231,6 +231,7 @@ class CommandHost(Protocol):
     preferred_name: str
     say_uno_next: bool
     api: Any
+    rooms: List[Dict[str, Any]]
     server_history: List[str]
 
     async def connect_server(self, url: str) -> None: ...
@@ -352,9 +353,11 @@ class CommandController:
             raw,
             available_commands=self.available_commands(),
             card_command_token=PLAY_COMMAND.token,
+            connect_command_token=CONNECT_COMMAND.token,
             command_template_candidate=command_template_candidate,
             valid_play_colors=VALID_PLAY_COLORS,
             hand=my_hand(self.host.state),
+            rooms=self.host.rooms,
             current_color=self.host.state.get("current_color"),
             top_card=self.host.state.get("top_card") or None,
         )

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from tuno.client.tui.commands import PLAY_COMMAND, VALID_PLAY_COLORS
+from tuno.client.tui.commands import CONNECT_COMMAND, PLAY_COMMAND, VALID_PLAY_COLORS
 from tuno.client.tui.completion import (
     CompletionState,
     apply_completion,
@@ -71,3 +71,41 @@ class ClientCompletionTests(unittest.TestCase):
         )
         self.assertEqual(candidates[0]["insert"], "/play 1 ")
         self.assertEqual(candidates[1]["insert"], "/play 2")
+
+    def test_connect_candidates_include_existing_rooms(self) -> None:
+        """Turn the visible room list into `/connect` suggestions."""
+        candidates = command_candidates(
+            "/connect ",
+            available_commands=["/connect <room>", "/create <room>", "/help"],
+            connect_command_token=CONNECT_COMMAND.token,
+            hand=[],
+            rooms=[
+                {"name": "main", "status": "Lobby", "player_count": 1},
+                {"name": "table-2", "status": "Playing", "player_count": 4},
+            ],
+        )
+        self.assertEqual(
+            candidates,
+            [
+                {"insert": "/connect main", "display": "/connect main"},
+                {"insert": "/connect table-2", "display": "/connect table-2"},
+            ],
+        )
+
+    def test_connect_candidates_filter_by_room_prefix(self) -> None:
+        """Narrow `/connect` room suggestions as the user types the room name."""
+        candidates = command_candidates(
+            "/connect ma",
+            available_commands=["/connect <room>", "/create <room>", "/help"],
+            connect_command_token=CONNECT_COMMAND.token,
+            hand=[],
+            rooms=[
+                {"name": "main"},
+                {"name": "math"},
+                {"name": "table-2"},
+            ],
+        )
+        self.assertEqual(
+            [candidate["insert"] for candidate in candidates],
+            ["/connect main", "/connect math"],
+        )
