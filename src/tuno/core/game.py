@@ -25,6 +25,7 @@ from tuno.core.events import (
     uno_armed,
     uno_disarmed,
 )
+from tuno.core.game_storage import public_player_payload
 from tuno.core.prng import LcgRandom
 from tuno.core.snapshot import build_snapshot
 
@@ -50,16 +51,7 @@ class PlayerState:
 
     def to_public_dict(self, is_self: bool) -> dict:
         """Serialize a player, exposing cards only to the owning player."""
-        payload = {
-            "player_id": self.player_id,
-            "name": self.name,
-            "card_count": len(self.hand),
-        }
-
-        if is_self:
-            payload["hand"] = [card.to_dict() for card in self.hand]
-
-        return payload
+        return public_player_payload(self, is_self)
 
 
 @dataclass

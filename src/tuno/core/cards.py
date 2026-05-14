@@ -130,6 +130,7 @@ class Deck:
         if not self.draw_pile:
             if len(self.discard_pile) <= 1:
                 from tuno.core.game import GameError  # lazy import to avoid circular dependency
+
                 raise GameError("No cards left to draw.")
 
             top = self.discard_pile.pop()

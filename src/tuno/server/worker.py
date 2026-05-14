@@ -13,38 +13,33 @@ The pure Python game engine remains the source of truth for UNO rules.
 from __future__ import annotations
 
 import json
+from workers import DurableObject, Response, WorkerEntrypoint
 
-try:
-    from workers import DurableObject, Response, WorkerEntrypoint
-except ModuleNotFoundError:  # pragma: no cover - local tests do not run inside Worker runtime
-
-    class DurableObject:  # type: ignore[no-redef]
-        """Minimal local stand-in for Cloudflare's DurableObject base class."""
-
-        def __init__(self, ctx, env):
-            self.ctx = ctx
-            self.env = env
-
-    class Response:  # type: ignore[no-redef]
-        """Minimal local stand-in for Worker Response objects used by tests."""
-
-        def __init__(self, *args, **kwargs):
-            self.args = args
-            self.kwargs = kwargs
-
-    class WorkerEntrypoint:  # type: ignore[no-redef]
-        """Minimal local stand-in for Cloudflare's WorkerEntrypoint base class."""
-
-        pass
-
-
-from tuno.core.cards import Card
-from tuno.core.game import MAX_PLAYERS, GameError, GameState, PlayerState
+from tuno.core.game import MAX_PLAYERS, GameError, GameState
+from tuno.core.game_storage import deserialize_game, serialize_game
 from tuno.protocol.messages import MAX_MESSAGE_SIZE, ProtocolError, decode_client_message
 from tuno.server.actions import apply_action
 
 DEFAULT_LOBBY_ID = "default-lobby"
 OPEN_WEBSOCKET_STATE = 1
+WORKER_GAME_STORAGE_KEYS = (
+    "seed",
+    "players",
+    "started",
+    "finished",
+    "winner_id",
+    "current_player_index",
+    "direction",
+    "current_color",
+    "status_message",
+    "recent_events",
+    "has_drawn_this_turn",
+    "draw_pile",
+    "discard_pile",
+    "drawn_card",
+    "next_player_serial",
+    "rng_state",
+)
 
 
 class TunoLobby(DurableObject):
@@ -324,7 +319,7 @@ class TunoLobby(DurableObject):
             # GameState payload format this lobby writes in _save_rooms.
             serialized = json.loads(str(payload))
             self.rooms = {
-                name: self._deserialize_game(game_payload)
+                name: deserialize_game(game_payload, WORKER_GAME_STORAGE_KEYS)
                 for name, game_payload in serialized.get("rooms", {}).items()
             }
         await self._reset_stale_rooms_if_needed()
@@ -335,7 +330,12 @@ class TunoLobby(DurableObject):
         await self.ctx.storage.put(
             self.STORAGE_KEY,
             json.dumps(
-                {"rooms": {name: self._serialize_game(game) for name, game in self.rooms.items()}}
+                {
+                    "rooms": {
+                        name: serialize_game(game, WORKER_GAME_STORAGE_KEYS)
+                        for name, game in self.rooms.items()
+                    }
+                }
             ),
         )
 
@@ -347,62 +347,6 @@ class TunoLobby(DurableObject):
             return
         self.rooms = {}
         await self._save_rooms()
-
-    def _serialize_game(self, game: GameState) -> dict:
-        """Convert one room's game state into a storage-friendly payload."""
-        return {
-            "seed": game.seed,
-            "players": [
-                {
-                    "player_id": player.player_id,
-                    "name": player.name,
-                    "hand": [card.to_dict() for card in player.hand],
-                }
-                for player in game.players
-            ],
-            "started": game.started,
-            "finished": game.finished,
-            "winner_id": game.winner_id,
-            "current_player_index": game.current_player_index,
-            "direction": game.direction,
-            "draw_pile": [card.to_dict() for card in game._deck.draw_pile],
-            "discard_pile": [card.to_dict() for card in game._deck.discard_pile],
-            "current_color": game.current_color,
-            "status_message": game.status_message,
-            "recent_events": list(game.recent_events),
-            "has_drawn_this_turn": game.has_drawn_this_turn,
-            "drawn_card": game.drawn_card.to_dict() if game.drawn_card else None,
-            "next_player_serial": game._next_player_serial,
-            "rng_state": game._deck._rng.state,
-        }
-
-    def _deserialize_game(self, payload: dict) -> GameState:
-        """Rebuild one room's game state from a storage payload."""
-        game = GameState(seed=payload["seed"])
-        game.players = [
-            PlayerState(
-                player_id=player["player_id"],
-                name=player["name"],
-                hand=[Card.from_dict(card) for card in player.get("hand", [])],
-            )
-            for player in payload.get("players", [])
-        ]
-        game.started = payload.get("started", False)
-        game.finished = payload.get("finished", False)
-        game.winner_id = payload.get("winner_id")
-        game.current_player_index = payload.get("current_player_index", 0)
-        game.direction = payload.get("direction", 1)
-        game._deck.draw_pile = [Card.from_dict(card) for card in payload.get("draw_pile", [])]
-        game._deck.discard_pile = [Card.from_dict(card) for card in payload.get("discard_pile", [])]
-        game.current_color = payload.get("current_color")
-        game.status_message = payload.get("status_message", game.status_message)
-        game.recent_events = list(payload.get("recent_events", game.recent_events))
-        drawn_card = payload.get("drawn_card")
-        game.drawn_card = Card.from_dict(drawn_card) if drawn_card else None
-        game.has_drawn_this_turn = payload.get("has_drawn_this_turn", False)
-        game._next_player_serial = payload.get("next_player_serial", 1)
-        game._deck._rng.state = payload.get("rng_state", game._deck._rng.state)
-        return game
 
     def _open_websockets(self) -> list:
         """Return only currently open lobby Durable Object websockets."""
