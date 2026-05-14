@@ -63,6 +63,7 @@ ignore = ["E501"]
 "tests/client/support.py" = ["E402"]
 "tests/core/test_game.py" = ["E402"]
 "tests/server/test_client_connection.py" = ["E402"]
+"tests/server/test_rooms.py" = ["E402"]
 
 [tool.ruff.format]
 quote-style = "double"

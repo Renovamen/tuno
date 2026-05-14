@@ -14,6 +14,8 @@ from tuno.client.tui.rendering import (
     render_players_body,
     render_players_title,
     render_recent_activity_body,
+    render_rooms_body,
+    render_rooms_title,
     render_top_card_body,
 )
 
@@ -28,6 +30,7 @@ class ClientViewState:
     hand_body: str
     players_title: str
     players_body: RenderableType
+    recent_activity_visible: bool
     top_card_visible: bool
     top_card_body: str
     recent_activity_body: str
@@ -41,7 +44,10 @@ def build_view_state(
     app_version: str,
     server_target: str,
     state: Dict[str, Any],
+    rooms: Sequence[Dict[str, Any]],
     connected: bool,
+    room_selected: bool,
+    selected_room_name: str | None,
     player_id: str | None,
     command_feedback_message: str | None,
     say_uno_next: bool,
@@ -50,17 +56,22 @@ def build_view_state(
     """Convert client runtime state into the strings/renderables needed by widgets."""
     command_meta_text = _command_meta_text(
         connected=connected,
+        room_selected=room_selected,
         player_id=player_id,
         command_feedback_message=command_feedback_message,
     )
+    room_lobby_visible = connected and not room_selected
 
     return ClientViewState(
         border_title=f"Tuno v{app_version} ({server_target})",
-        local_status_body=render_local_status_body(state),
+        local_status_body=render_local_status_body(state, room_name=selected_room_name),
         hand_visible=bool(state.get("started") and not state.get("finished")),
         hand_body=render_hand_body(state, say_uno_next=say_uno_next),
-        players_title=render_players_title(state),
-        players_body=render_players_body(state),
+        players_title=render_rooms_title(rooms)
+        if room_lobby_visible
+        else render_players_title(state),
+        players_body=render_rooms_body(rooms) if room_lobby_visible else render_players_body(state),
+        recent_activity_visible=not room_lobby_visible,
         top_card_visible=bool(state.get("started") and state.get("top_card")),
         top_card_body=render_top_card_body(state),
         recent_activity_body=render_recent_activity_body(state),
@@ -73,6 +84,7 @@ def build_view_state(
 def _command_meta_text(
     *,
     connected: bool,
+    room_selected: bool,
     player_id: str | None,
     command_feedback_message: str | None,
 ) -> str:
@@ -80,6 +92,8 @@ def _command_meta_text(
         return render_command_feedback(command_feedback_message)
     if player_id is not None:
         return ""
+    if connected and not room_selected:
+        return "Choose a room: /connect <room> or /create <room>"
     if connected:
-        return "Join the game: /connect <name>"
+        return "Join the game: /join <player_name>"
     return "Connect to a server: /server <server>"

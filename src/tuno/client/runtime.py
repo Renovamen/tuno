@@ -43,6 +43,8 @@ class ClientRuntime:
         self.server_history = load_server_history()
 
         self.player_id: Optional[str] = None
+        self.selected_room_name: Optional[str] = None
+        self.rooms: list[Dict[str, Any]] = []
         self.state: Dict[str, Any] = {}
         self.say_uno_next = False
         self.update_notice_text = ""
@@ -90,12 +92,15 @@ class ClientRuntime:
 
         name = (player_name or self.preferred_name).strip()
         if not name:
-            self._set_feedback("Command error: Usage: /connect <name>")
+            self._set_feedback("Command error: Usage: /join <player_name>")
             return
         self.preferred_name = name
 
         if self.api is None:
             self._set_feedback("Command error: Connect to a server first with /server <server>")
+            return
+        if self.selected_room_name is None:
+            self._set_feedback("Command error: Choose a room first with /connect or /create.")
             return
 
         try:
@@ -126,7 +131,32 @@ class ClientRuntime:
         self.selected_server_url = target_url
         self.api = next_api
         self.listener_task = self._task_factory(self.listen_loop())
-        self._set_feedback("Connected to server. Join the game: /connect <name>")
+        self.selected_room_name = None
+        self.rooms = []
+        self._set_feedback("Connected to server. Choose a room: /connect <room> or /create <room>")
+
+    async def join_room(self, name: str) -> None:
+        """Ask the connected server to enter an existing room."""
+        await self._send_room_command("join_room", name)
+
+    async def create_room(self, name: str) -> None:
+        """Ask the connected server to create and enter a new room."""
+        await self._send_room_command("create_room", name)
+
+    async def _send_room_command(self, kind: str, name: str) -> None:
+        if self.api is None:
+            self._set_feedback("Command error: Connect to a server first with /server <server>")
+            return
+
+        room_name = name.strip()
+        if not room_name:
+            self._set_feedback("Command error: Room name is required.")
+            return
+
+        try:
+            await self.api.send(kind, name=room_name)
+        except Exception as exc:  # pragma: no cover
+            self._set_feedback(f"Room command failed: {exc}")
 
     async def close_current_server(self) -> None:
         """Close the active websocket and clear state before switching servers."""
@@ -143,6 +173,8 @@ class ClientRuntime:
 
         self.api = None
         self.player_id = None
+        self.selected_room_name = None
+        self.rooms = []
         self.state = {}
         self.say_uno_next = False
 
@@ -156,6 +188,8 @@ class ClientRuntime:
 
         self.api = None
         self.player_id = None
+        self.selected_room_name = None
+        self.rooms = []
         self.state = {}
         self.listener_task = None
 
@@ -195,6 +229,8 @@ class ClientRuntime:
                 return
 
             self.player_id = None
+            self.selected_room_name = None
+            self.rooms = []
             self.api = None
             self.state = {}
             self._set_feedback(f"Disconnected: {exc}")
@@ -206,6 +242,22 @@ class ClientRuntime:
         if kind == "welcome":
             self._clear_pending_server_response()
             self.player_id = message.get("player_id")
+            self._render_state()
+        elif kind == "room_joined":
+            self._clear_pending_server_response()
+            self.selected_room_name = str(message.get("name", "")).strip() or None
+            self.player_id = None
+            self.state = {}
+            self._render_state()
+        elif kind == "room_closed":
+            self._clear_pending_server_response()
+            self.selected_room_name = None
+            self.player_id = None
+            self.state = {}
+            self._render_state()
+        elif kind == "room_list":
+            self._clear_pending_server_response()
+            self.rooms = list(message.get("rooms", []))
             self._render_state()
         elif kind == "error":
             self._set_feedback(

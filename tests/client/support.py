@@ -29,7 +29,7 @@ except Exception:  # pragma: no cover
 
 from tuno.client.api import ClientAPI
 from tuno.core.cards import Card
-from tuno.server.session import GameSession
+from tuno.server.session import RoomServer
 from tuno.server.standalone import run_server
 
 __all__ = [
@@ -79,7 +79,7 @@ class ClientAppHarness(unittest.IsolatedAsyncioTestCase):
             self.skipTest(f"local socket binding unavailable in this environment: {exc}")
 
         self.url = f"ws://127.0.0.1:{self.port}"
-        self.session = GameSession()
+        self.session = RoomServer()
         self.server_task = asyncio.create_task(
             run_server("127.0.0.1", self.port, session=self.session)
         )
@@ -103,10 +103,12 @@ class ClientAppHarness(unittest.IsolatedAsyncioTestCase):
         await guest.open()
         guest_events = guest.events()
         await asyncio.wait_for(guest_events.__anext__(), timeout=2)
+        await guest.send("join_room", name="main")
+        await asyncio.wait_for(guest_events.__anext__(), timeout=2)
         await guest.send("join", name="bob")
         await asyncio.wait_for(guest_events.__anext__(), timeout=2)
         await self.wait_until(
-            lambda: len(self.session.state.players) == 2, pilot, message="guest join"
+            lambda: len(self.session.rooms["main"].state.players) == 2, pilot, message="guest join"
         )
 
     async def close_clients(self, app: TunoApp, guest: ClientAPI) -> None:

@@ -10,7 +10,12 @@ class ClientActionTests(unittest.IsolatedAsyncioTestCase):
     """Cover command dispatch and local action validation."""
 
     async def test_dispatch_command_routes_by_command_spec(self) -> None:
+        """Route each parsed command to its runtime callback or protocol send."""
+        # Capture every callback effect so the command routing table can be asserted
+        # without constructing a full Textual app.
         connected_servers: list[str] = []
+        joined_rooms: list[str] = []
+        created_rooms: list[str] = []
         joined_names: list[str | None] = []
         sent: list[tuple[str, dict[str, object]]] = []
         exited: list[bool] = []
@@ -20,6 +25,12 @@ class ClientActionTests(unittest.IsolatedAsyncioTestCase):
 
         async def connect_server(url: str) -> None:
             connected_servers.append(url)
+
+        async def join_room(name: str) -> None:
+            joined_rooms.append(name)
+
+        async def create_room(name: str) -> None:
+            created_rooms.append(name)
 
         async def send(kind: str, **payload) -> None:
             sent.append((kind, payload))
@@ -33,9 +44,12 @@ class ClientActionTests(unittest.IsolatedAsyncioTestCase):
         def render_state() -> None:
             return None
 
+        # Step 1: Dispatch the command shapes that the client exposes to users.
         for raw in (
             "/server ws://example.test",
-            "/connect alice",
+            "/create main",
+            "/connect main",
+            "/join alice",
             "/start",
             "/draw",
             "/pass",
@@ -49,14 +63,21 @@ class ClientActionTests(unittest.IsolatedAsyncioTestCase):
                 state={},
                 connect=connect,
                 connect_server=connect_server,
+                join_room=join_room,
+                create_room=create_room,
                 send=send,
                 exit_client=exit_client,
                 set_command_feedback=set_feedback,
                 render_state=render_state,
             )
 
+        # Step 2: Server, room, player, and exit commands should hit dedicated callbacks.
         self.assertEqual(connected_servers, ["ws://example.test"])
+        self.assertEqual(created_rooms, ["main"])
+        self.assertEqual(joined_rooms, ["main"])
         self.assertEqual(joined_names, ["alice"])
+
+        # Step 3: Gameplay commands should become protocol action messages.
         self.assertEqual(
             sent,
             [
@@ -69,11 +90,13 @@ class ClientActionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(exited, [True])
 
     async def test_play_card_by_number_sends_valid_play_request(self) -> None:
+        """Convert a locally legal numbered card selection into a play_card send."""
         sent: list[tuple[str, dict[str, object]]] = []
 
         async def send(kind: str, **payload) -> None:
             sent.append((kind, payload))
 
+        # Step 1: Play hand slot 1 when it matches the discard rank.
         result = await play_card_by_number(
             1,
             state={
@@ -91,6 +114,7 @@ class ClientActionTests(unittest.IsolatedAsyncioTestCase):
             render_state=lambda: None,
         )
 
+        # Step 2: The helper should consume the local UNO intent and send zero-based index.
         self.assertFalse(result)
         self.assertEqual(
             sent,
@@ -103,12 +127,14 @@ class ClientActionTests(unittest.IsolatedAsyncioTestCase):
         )
 
     async def test_play_card_by_number_rejects_invalid_local_play(self) -> None:
+        """Reject an obviously illegal card before sending anything to the server."""
         feedback: list[str] = []
         sent: list[tuple[str, dict[str, object]]] = []
 
         async def send(kind: str, **payload) -> None:
             sent.append((kind, payload))
 
+        # Step 1: Try to play a card that matches neither current color nor rank.
         result = await play_card_by_number(
             1,
             state={
@@ -126,6 +152,7 @@ class ClientActionTests(unittest.IsolatedAsyncioTestCase):
             render_state=lambda: None,
         )
 
+        # Step 2: Local validation should block the send and explain the mismatch.
         self.assertFalse(result)
         self.assertEqual(sent, [])
         self.assertIn("does not match current color", feedback[-1])

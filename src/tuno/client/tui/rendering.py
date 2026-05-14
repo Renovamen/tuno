@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Sequence
 
 from rich.console import RenderableType
 from rich.markup import escape
@@ -31,11 +31,29 @@ def role_label(state: Dict[str, Any]) -> str:
     host_id = state.get("host_player_id")
 
     if not your_id:
-        return "Not joined"
+        return "not joined"
     if your_id == host_id:
-        return "Host"
+        return "host"
 
-    return "Player"
+    return "player"
+
+
+def _phase_label(state: Dict[str, Any]) -> str:
+    """Derive the current room phase label from a snapshot."""
+    if state.get("started") and not state.get("finished"):
+        return "game"
+    if state.get("finished"):
+        return "finished"
+    return "lobby"
+
+
+def _local_player_name(state: Dict[str, Any]) -> str:
+    """Return the local player's name from the player snapshot, or '?' before join."""
+    your_id = state.get("your_player_id")
+    for player in state.get("players", []):
+        if player.get("player_id") == your_id:
+            return str(player.get("name") or "?")
+    return "?"
 
 
 def card_markup(card: Dict[str, Any], *, prefer_short: bool = False) -> str:
@@ -117,17 +135,16 @@ def render_command_feedback(message: Optional[str]) -> str:
     return "" if not message else escape(message)
 
 
-def render_local_status_body(state: Dict[str, Any]) -> str:
+def render_local_status_body(state: Dict[str, Any], *, room_name: Optional[str]) -> str:
     """Render the local-status section body."""
-    current_role = role_label(state)
-    phase = (
-        "Game"
-        if state.get("started") and not state.get("finished")
-        else "Finished"
-        if state.get("finished")
-        else "Lobby"
+    player_name = escape(_local_player_name(state))
+    room_label = escape(room_name or "?")
+    return "\n".join(
+        [
+            f"[bold]Name:[/] {player_name} ({role_label(state)})",
+            f"[bold]Room:[/] {room_label} ({_phase_label(state)})",
+        ]
     )
-    return "\n".join([f"[bold]Role:[/] {current_role}", f"[bold]Phase:[/] {phase}"])
 
 
 def render_hand_body(state: Dict[str, Any], *, say_uno_next: bool) -> str:
@@ -152,6 +169,40 @@ def render_players_title(state: Dict[str, Any]) -> str:
 def render_players_body(state: Dict[str, Any]) -> RenderableType:
     """Render the players section body."""
     return player_table(state)
+
+
+def render_rooms_title(rooms: Sequence[Dict[str, Any]]) -> str:
+    """Render the dynamic room-list section title."""
+    return f"Room List ({len(rooms)})"
+
+
+def render_rooms_body(rooms: Iterable[Dict[str, Any]]) -> RenderableType:
+    """Render available rooms as a table, or a placeholder when none exist."""
+    room_items = list(rooms)
+    if not room_items:
+        return "No rooms yet."
+
+    table = Table(
+        box=None,
+        padding=(0, 2, 0, 0),
+        show_header=True,
+        header_style="dim",
+        expand=False,
+    )
+    table.add_column("Name")
+    table.add_column("Status")
+    table.add_column("Players")
+
+    for room in room_items:
+        count = room.get("player_count", 0)
+        max_players = room.get("max_players", 5)
+        table.add_row(
+            escape(str(room.get("name", ""))),
+            escape(str(room.get("status", "Lobby"))),
+            f"{count}/{max_players}",
+        )
+
+    return table
 
 
 def render_top_card_body(state: Dict[str, Any]) -> str:

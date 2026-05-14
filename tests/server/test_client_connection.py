@@ -17,7 +17,7 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 from tuno.client.api import ClientAPI
-from tuno.server.session import GameSession
+from tuno.server.session import RoomServer
 from tuno.server.standalone import handler, run_server
 
 
@@ -48,7 +48,7 @@ class ServerClientConnectionTests(unittest.IsolatedAsyncioTestCase):
             self.port = get_free_port()
         except PermissionError as exc:  # pragma: no cover - sandbox-specific
             self.skipTest(f"local socket binding unavailable in this environment: {exc}")
-        self.session = GameSession()
+        self.session = RoomServer()
         self.server_task = asyncio.create_task(
             run_server("127.0.0.1", self.port, session=self.session)
         )
@@ -68,6 +68,10 @@ class ServerClientConnectionTests(unittest.IsolatedAsyncioTestCase):
             events = api.events()
             info = await self.next_event_of_type(events, "info")
             self.assertEqual(info["type"], "info")
+
+            await api.send("create_room", name="main")
+            joined_room = await self.next_event_of_type(events, "room_joined")
+            self.assertEqual(joined_room["name"], "main")
 
             await api.send("join", name="alice")
             welcome = await self.next_event_of_type(events, "welcome")

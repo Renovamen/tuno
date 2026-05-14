@@ -56,7 +56,7 @@ Deploy on cloudflare workers:
 uv run pywrangler deploy
 ```
 
-The Worker supports an optional `?game=<name>` query parameter. If omitted, it uses the default single shared game. 
+The Worker uses the default room lobby endpoint. After connecting, clients create or select rooms with `/create <room>` or `/connect <room>`.
 
 If you change the Durable Object class name or add more Durable Objects later, update the `durable_objects.bindings` and `migrations` sections in [`wrangler.jsonc`](wrangler.jsonc) before deploying.
 

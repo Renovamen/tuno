@@ -30,10 +30,10 @@ class ClientCompletionTests(unittest.TestCase):
 
     def test_refresh_hides_suggestions_without_slash(self) -> None:
         """Hide suggestions and reset state when the input is not a command."""
-        state = CompletionState(completion_candidates=["/connect "])
+        state = CompletionState(completion_candidates=["/join "])
         # Non-slash input produces no candidates; syncing clears state.
         candidates = command_candidates(
-            "play", available_commands=["/connect <name>", "/help"], hand=[]
+            "play", available_commands=["/join <player_name>", "/help"], hand=[]
         )
         sync_completion_state(state, candidates)
         self.assertEqual(candidates, [])
@@ -42,7 +42,7 @@ class ClientCompletionTests(unittest.TestCase):
     def test_tab_completion_uses_selected_candidate_after_navigation(self) -> None:
         """Apply the highlighted candidate after arrow-key navigation."""
         candidates = command_candidates(
-            "/", available_commands=["/connect <name>", "/help"], hand=[]
+            "/", available_commands=["/join <player_name>", "/help"], hand=[]
         )
         state = sync_completion_state(CompletionState(), candidates)
         state = move_selection(state, candidates, 1)
@@ -53,7 +53,7 @@ class ClientCompletionTests(unittest.TestCase):
     def test_command_candidates_filter_out_unavailable_prefix_matches(self) -> None:
         """Avoid suggesting commands that are not currently legal for the player."""
         candidates = command_candidates(
-            "/st", available_commands=["/connect <name>", "/help"], hand=[]
+            "/st", available_commands=["/join <player_name>", "/help"], hand=[]
         )
         self.assertEqual(candidates, [])
 

@@ -53,8 +53,16 @@ class CommandSpec:
 COMMAND_SPECS_BY_NAME = {
     spec.name: spec
     for spec in (
-        CommandSpec("connect", "/connect <name>", max_args=1, trailing_space_completion=True),
+        CommandSpec(
+            "connect", "/connect <room>", min_args=1, max_args=1, trailing_space_completion=True
+        ),
         CommandSpec("server", "/server <server>", max_args=1, trailing_space_completion=True),
+        CommandSpec(
+            "join", "/join <player_name>", min_args=1, max_args=1, trailing_space_completion=True
+        ),
+        CommandSpec(
+            "create", "/create <room>", min_args=1, max_args=1, trailing_space_completion=True
+        ),
         CommandSpec("start", "/start"),
         CommandSpec(
             "play", "/play <n> [color]", min_args=1, max_args=2, trailing_space_completion=True
@@ -71,6 +79,8 @@ CANONICAL_COMMANDS = frozenset(COMMAND_SPECS_BY_NAME)
 
 CONNECT_COMMAND = COMMAND_SPECS_BY_NAME["connect"]
 SERVER_COMMAND = COMMAND_SPECS_BY_NAME["server"]
+JOIN_PLAYER_COMMAND = COMMAND_SPECS_BY_NAME["join"]
+CREATE_ROOM_COMMAND = COMMAND_SPECS_BY_NAME["create"]
 START_COMMAND = COMMAND_SPECS_BY_NAME["start"]
 PLAY_COMMAND = COMMAND_SPECS_BY_NAME["play"]
 DRAW_COMMAND = COMMAND_SPECS_BY_NAME["draw"]
@@ -122,13 +132,26 @@ def parse_command(raw: str) -> ParsedCommand:
 
 
 def derive_available_commands(
-    state: Dict[str, object], *, connected: bool, joined: bool, uno_armed: bool
+    state: Dict[str, object],
+    *,
+    connected: bool,
+    room_selected: bool,
+    joined: bool,
+    uno_armed: bool,
 ) -> List[str]:
     if not connected:
         return [SERVER_COMMAND.template, HELP_COMMAND.template, EXIT_COMMAND.template]
 
+    if not room_selected:
+        return [
+            CONNECT_COMMAND.template,
+            CREATE_ROOM_COMMAND.template,
+            HELP_COMMAND.template,
+            EXIT_COMMAND.template,
+        ]
+
     if not joined:
-        return [CONNECT_COMMAND.template, HELP_COMMAND.template, EXIT_COMMAND.template]
+        return [JOIN_PLAYER_COMMAND.template, HELP_COMMAND.template, EXIT_COMMAND.template]
 
     if state.get("finished"):
         commands = [HELP_COMMAND.template, EXIT_COMMAND.template]
@@ -182,12 +205,15 @@ class CommandHost(Protocol):
 
     state: Dict[str, Any]
     player_id: Optional[str]
+    selected_room_name: Optional[str]
     preferred_name: str
     say_uno_next: bool
     api: Any
     server_history: List[str]
 
     async def connect_server(self, url: str) -> None: ...
+    async def join_room(self, name: str) -> None: ...
+    async def create_room(self, name: str) -> None: ...
     async def connect(
         self, player_name: Optional[str] = None, url: Optional[str] = None
     ) -> None: ...
@@ -242,6 +268,8 @@ class CommandController:
                 state=self.host.state,
                 connect=self.host.connect,
                 connect_server=self.host.connect_server,
+                join_room=self.host.join_room,
+                create_room=self.host.create_room,
                 send=self.host.send,
                 exit_client=self.host.exit_client,
                 set_command_feedback=self.set_feedback,
@@ -287,6 +315,7 @@ class CommandController:
         return derive_available_commands(
             self.host.state,
             connected=self.host.api is not None,
+            room_selected=self.host.selected_room_name is not None,
             joined=self.host.player_id is not None,
             uno_armed=self.host.say_uno_next,
         )
@@ -450,4 +479,6 @@ class CommandController:
     def _default_meta_text(self) -> str:
         if self.host.api is None:
             return f"Connect to a server: {SERVER_COMMAND.template}"
-        return f"Join the game: {CONNECT_COMMAND.template}"
+        if self.host.selected_room_name is None:
+            return f"Choose a room: {CONNECT_COMMAND.template} or {CREATE_ROOM_COMMAND.template}"
+        return f"Join the game: {JOIN_PLAYER_COMMAND.template}"

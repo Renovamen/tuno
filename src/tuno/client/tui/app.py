@@ -70,6 +70,22 @@ class TunoApp(App):
         self.runtime.player_id = value
 
     @property
+    def selected_room_name(self) -> Optional[str]:
+        return self.runtime.selected_room_name
+
+    @selected_room_name.setter
+    def selected_room_name(self, value: Optional[str]) -> None:
+        self.runtime.selected_room_name = value
+
+    @property
+    def rooms(self) -> list[Dict[str, Any]]:
+        return self.runtime.rooms
+
+    @rooms.setter
+    def rooms(self, value: list[Dict[str, Any]]) -> None:
+        self.runtime.rooms = value
+
+    @property
     def state(self) -> Dict[str, Any]:
         return self.runtime.state
 
@@ -135,7 +151,6 @@ class TunoApp(App):
                     yield Static("", classes="section-divider")
                     yield Static("Join to view local hand info.", id="local-status-body")
 
-                    yield Static("", classes="section-gap")
                     yield Static("", classes="section-gap")
                     yield Static("", id="tuno-logo")
 
@@ -259,6 +274,14 @@ class TunoApp(App):
         """Delegate server switching behavior to the runtime service."""
         await self.runtime.connect_server(url)
 
+    async def join_room(self, name: str) -> None:
+        """Delegate room selection behavior to the runtime service."""
+        await self.runtime.join_room(name)
+
+    async def create_room(self, name: str) -> None:
+        """Delegate room creation behavior to the runtime service."""
+        await self.runtime.create_room(name)
+
     async def exit_client(self) -> None:
         """Delegate shutdown behavior to the runtime service."""
         await self.runtime.exit_client()
@@ -275,7 +298,10 @@ class TunoApp(App):
             app_version=self._app_version,
             server_target=server_target,
             state=self.state,
+            rooms=self.rooms,
             connected=self.api is not None,
+            room_selected=self.selected_room_name is not None,
+            selected_room_name=self.selected_room_name,
             player_id=self.player_id,
             command_feedback_message=self.command_controller.command_feedback_message,
             say_uno_next=self.say_uno_next,
@@ -307,6 +333,8 @@ class TunoApp(App):
         self.query_one("#players-body", Static).update(view_state.players_body)
 
         # Recent activity section
+        recent_activity_section = self.query_one("#recent-activity-section", Vertical)
+        recent_activity_section.display = view_state.recent_activity_visible
         # -- The top card is rendered at the top of this section
         top_card_body = self.query_one("#recent-top-card-body", Static)
         top_card_divider = self.query_one("#recent-top-card-divider", Static)

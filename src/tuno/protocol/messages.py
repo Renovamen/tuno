@@ -13,6 +13,8 @@ class ProtocolError(Exception):
 MAX_MESSAGE_SIZE = 4096
 
 CLIENT_MESSAGE_TYPES = {
+    "create_room",
+    "join_room",
     "join",
     "start",
     "play_card",
@@ -24,6 +26,9 @@ CLIENT_MESSAGE_TYPES = {
 
 SERVER_MESSAGE_TYPES = {
     "info",
+    "room_closed",
+    "room_joined",
+    "room_list",
     "welcome",
     "state",
     "error",

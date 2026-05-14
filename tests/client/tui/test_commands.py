@@ -12,7 +12,9 @@ class ClientCommandParsingTests(unittest.TestCase):
         """Parse every canonical command shape accepted by the client."""
         self.assertEqual(parse_command("/server").name, "server")
         self.assertEqual(parse_command("/server ws://127.0.0.1:8765").args, ["ws://127.0.0.1:8765"])
-        self.assertEqual(parse_command("/connect alice").name, "connect")
+        self.assertEqual(parse_command("/connect main").args, ["main"])
+        self.assertEqual(parse_command("/create main").args, ["main"])
+        self.assertEqual(parse_command("/join alice").name, "join")
         self.assertEqual(parse_command("/start").name, "start")
         self.assertEqual(parse_command("/play 3").args, ["3"])
         self.assertEqual(parse_command("/play 3 red").args, ["3", "red"])
@@ -33,6 +35,9 @@ class ClientCommandParsingTests(unittest.TestCase):
             "/play 2 purple",
             "/start now",
             "/server ws://one ws://two",
+            "/join",
+            "/connect",
+            "/create",
         ]
         for raw in bad_inputs:
             with self.assertRaises(CommandError, msg=raw):
@@ -44,14 +49,32 @@ class AvailableCommandsTests(unittest.TestCase):
 
     def test_disconnected_help(self) -> None:
         """Offer connect and help before a player joins a server."""
-        cmds = derive_available_commands({}, connected=False, joined=False, uno_armed=False)
+        cmds = derive_available_commands(
+            {},
+            connected=False,
+            room_selected=False,
+            joined=False,
+            uno_armed=False,
+        )
         self.assertEqual(cmds, ["/server <server>", "/help", "/exit"])
+
+    def test_room_selection_help(self) -> None:
+        """Offer room commands after server connect and before room selection."""
+        cmds = derive_available_commands(
+            {},
+            connected=True,
+            room_selected=False,
+            joined=False,
+            uno_armed=False,
+        )
+        self.assertEqual(cmds, ["/connect <room>", "/create <room>", "/help", "/exit"])
 
     def test_lobby_host_help(self) -> None:
         """Expose `/start` only when the joined player can start the lobby."""
         cmds = derive_available_commands(
             {"started": False, "can_start": True},
             connected=True,
+            room_selected=True,
             joined=True,
             uno_armed=False,
         )
@@ -62,6 +85,7 @@ class AvailableCommandsTests(unittest.TestCase):
         cmds = derive_available_commands(
             {"started": False, "can_start": False},
             connected=True,
+            room_selected=True,
             joined=True,
             uno_armed=False,
         )
@@ -78,6 +102,7 @@ class AvailableCommandsTests(unittest.TestCase):
                 "uno_hint": True,
             },
             connected=True,
+            room_selected=True,
             joined=True,
             uno_armed=False,
         )
@@ -88,6 +113,7 @@ class AvailableCommandsTests(unittest.TestCase):
         cmds = derive_available_commands(
             {"started": True, "your_turn": False},
             connected=True,
+            room_selected=True,
             joined=True,
             uno_armed=False,
         )
@@ -98,6 +124,7 @@ class AvailableCommandsTests(unittest.TestCase):
         cmds = derive_available_commands(
             {"finished": True, "can_start": True},
             connected=True,
+            room_selected=True,
             joined=True,
             uno_armed=False,
         )
@@ -108,6 +135,7 @@ class AvailableCommandsTests(unittest.TestCase):
         cmds = derive_available_commands(
             {"finished": True, "can_start": False},
             connected=True,
+            room_selected=True,
             joined=True,
             uno_armed=False,
         )

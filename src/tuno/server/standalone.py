@@ -8,7 +8,7 @@ from typing import Optional
 from websockets.exceptions import ConnectionClosed
 
 from tuno.protocol.messages import ProtocolError, decode_client_message, encode_message
-from tuno.server.session import GameSession
+from tuno.server.session import GameSession, RoomServer
 
 LOGGER = logging.getLogger(__name__)
 
@@ -32,10 +32,12 @@ async def handler(websocket, session: GameSession) -> None:
         await session.detach(websocket)
 
 
-async def run_server(host: str, port: int, session: Optional[GameSession] = None) -> None:
+async def run_server(
+    host: str, port: int, session: Optional[GameSession | RoomServer] = None
+) -> None:
     from websockets.asyncio.server import serve
 
-    active_session = session or GameSession()
+    active_session = session or RoomServer()
     async with serve(lambda websocket: handler(websocket, active_session), host, port):
         LOGGER.info("tuno standalone server listening on ws://%s:%s", host, port)
         await asyncio.Future()

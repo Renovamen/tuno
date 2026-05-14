@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 from __future__ import annotations
 
 import argparse
@@ -8,7 +9,6 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
-
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PYTHON_VERSION_FILE = REPO_ROOT / "src" / "tuno" / "__init__.py"

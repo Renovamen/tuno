@@ -19,25 +19,32 @@ class ClientCommandControllerTests(ClientAppHarness):
         Flow:
         1. Submit an invalid slash command before connecting.
         2. Verify parser feedback is stored on the command controller.
-        3. Connect to the server, join as host, add a guest, and start a round.
-        4. Seed a hand where one numbered card is illegal and one wild card lacks a color.
+        3. Connect to the server, create a room, join as host, add a guest, and start a round.
+        4. Seed a room-scoped hand where one numbered card is illegal and one wild card lacks a color.
         5. Verify both local validation failures produce clear feedback.
         """
         app = TunoApp()
         guest = ClientAPI(self.url)
         async with app.run_test() as pilot:
-            # 1. Invalid command before connect should surface parser feedback.
+            # Step 1: Invalid command before connect should surface parser feedback.
             await app.execute_command("/play")
             feedback_text = app.command_controller.command_feedback_message or ""
+
+            # Step 2: Parser feedback should stay on the command controller.
             self.assertIn("Command error:", feedback_text)
             self.assertIn("Try /help", feedback_text)
 
-            # 2. Open the server connection, join as host, then add a guest.
+            # Step 3: Open the server connection, create/select a room, and join as host.
             await app.execute_command(f"/server {self.url}")
             await self.wait_until(lambda: app.api is not None, pilot, message="server connect")
-            await app.execute_command("/connect alice")
+            await app.execute_command("/create main")
+            await self.wait_until(
+                lambda: app.selected_room_name == "main", pilot, message="room create"
+            )
+            await app.execute_command("/join alice")
             await self.wait_until(lambda: app.player_id is not None, pilot, message="host join")
 
+            # Step 3: Add a second player so the room can start a legal round.
             await self.connect_guest(guest, pilot)
 
             await app.execute_command("/start")
@@ -45,32 +52,34 @@ class ClientCommandControllerTests(ClientAppHarness):
                 lambda: app.state.get("started") is True, pilot, message="game start"
             )
 
-            self.session.state.players[0].hand = [
+            # Step 4: Seed the active room with local-validation failure cases.
+            game = self.session.rooms["main"].state
+            game.players[0].hand = [
                 Card("blue", "7"),
                 Card(None, "wild"),
             ]
-            self.session.state.players[1].hand = [
+            game.players[1].hand = [
                 Card("yellow", "2"),
                 Card("green", "4"),
             ]
-            self.session.state.discard_pile = [Card("red", "1")]
-            self.session.state.current_color = "red"
-            self.session.state.current_player_index = 0
-            self.session.state.status_message = "Illegal play scenario ready."
-            await self.session._broadcast_state()
+            game.discard_pile = [Card("red", "1")]
+            game.current_color = "red"
+            game.current_player_index = 0
+            game.status_message = "Illegal play scenario ready."
+            await self.session.rooms["main"]._broadcast_state()
             await self.wait_until(
                 lambda: app.state.get("status_message") == "Illegal play scenario ready.",
                 pilot,
                 message="illegal play sync",
             )
 
-            # 3. Reject a numbered card that does not match color or rank.
+            # Step 5: Reject a numbered card that does not match color or rank.
             await app.execute_command("/play 1")
             feedback_text = app.command_controller.command_feedback_message or ""
             self.assertIn("Illegal play:", feedback_text)
             self.assertIn("does not match current color", feedback_text)
 
-            # 4. Reject a wild card play that omits the required chosen color.
+            # Step 5: Reject a wild card play that omits the required chosen color.
             await app.execute_command("/play 2")
             feedback_text = app.command_controller.command_feedback_message or ""
             self.assertIn("wild cards require a color", feedback_text.lower())
@@ -81,47 +90,61 @@ class ClientCommandControllerTests(ClientAppHarness):
         """Ensure `/exit` performs the full shutdown path for both client and server state.
 
         Flow:
-        1. Connect to a real server session, join as host, and start a round.
+        1. Connect to a real server session, create a room, join as host, and start a round.
         2. Invoke `/exit`.
-        3. Verify the client transport is closed and the app exit hook is called once.
-        4. Verify the authoritative server session observes the player leaving the game.
+        3. Verify the client transport is closed and the room observes the player leaving.
+        4. Verify the app exit hook is called once.
         """
         app = TunoApp()
         guest = ClientAPI(self.url)
         app.exit = Mock()
         async with app.run_test() as pilot:
-            # 1. Open transport, join, and start a real session for the full `/exit` path.
+            # Step 1: Open transport, create/select a room, and join as host.
             await app.execute_command(f"/server {self.url}")
             await self.wait_until(lambda: app.api is not None, pilot, message="server connect")
-            await app.execute_command("/connect alice")
+            await app.execute_command("/create main")
+            await self.wait_until(
+                lambda: app.selected_room_name == "main", pilot, message="room create"
+            )
+            await app.execute_command("/join alice")
             await self.wait_until(lambda: app.player_id is not None, pilot, message="host join")
 
+            # Step 1: Add a guest and start gameplay so `/exit` must send a leave.
             await self.connect_guest(guest, pilot)
             await app.execute_command("/start")
             await self.wait_until(
                 lambda: app.state.get("started") is True, pilot, message="game start"
             )
 
-            # 2. `/exit` should drop local transport state immediately.
+            # Step 2: `/exit` should drop local transport state immediately.
             await app.execute_command("/exit")
             await self.wait_until(lambda: app.api is None, pilot, message="client close")
 
-            # 3. The server should observe the leave and collapse to the remaining player.
+            # Step 3: The room should observe the leave and collapse to the remaining player.
             await self.wait_until(
-                lambda: len(self.session.state.players) == 1, pilot, message="server leave"
+                lambda: len(self.session.rooms["main"].state.players) == 1,
+                pilot,
+                message="server leave",
             )
-            self.assertTrue(self.session.state.finished)
+            self.assertTrue(self.session.rooms["main"].state.finished)
 
-            # 4. The Textual app should request shutdown exactly once.
+            # Step 4: The Textual app should request shutdown exactly once.
             app.exit.assert_called_once_with()
 
         if guest.websocket is not None:
             await guest.close()
 
     async def test_failed_server_switch_keeps_current_connection(self) -> None:
-        """Keep the active websocket when a later `/server` target fails to open."""
+        """Keep the active websocket when a later `/server` target fails to open.
+
+        Flow:
+        1. Connect to a reachable server without selecting a room.
+        2. Attempt to switch to an unreachable websocket URL.
+        3. Verify the original connection remains active and the failed URL is remembered.
+        """
         app = TunoApp()
         async with app.run_test() as pilot:
+            # Step 1: Establish the initial server connection.
             await app.execute_command(f"/server {self.url}")
             await self.wait_until(
                 lambda: app.api is not None and app.api.url == self.url,
@@ -129,9 +152,11 @@ class ClientCommandControllerTests(ClientAppHarness):
                 message="initial server connect",
             )
 
+            # Step 2: Try to switch to a server that cannot accept the websocket.
             await app.execute_command("/server ws://127.0.0.1:1")
             await pilot.pause(0.1)
 
+            # Step 3: Failed switching must not discard the working connection.
             self.assertIsNotNone(app.api)
             self.assertEqual(app.api.url, self.url)
             self.assertIn("ws://127.0.0.1:1", app.server_history)

@@ -12,15 +12,15 @@
   "durable_objects": {
     "bindings": [
       {
-        "name": "TUNO_GAME",
-        "class_name": "TunoGame"
+        "name": "TUNO_LOBBY",
+        "class_name": "TunoLobby"
       }
     ]
   },
   "migrations": [
     {
       "tag": "v1",
-      "new_sqlite_classes": ["TunoGame"]
+      "new_sqlite_classes": ["TunoLobby"]
     }
   ],
   "observability": {

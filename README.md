@@ -72,7 +72,9 @@ tuno
 **Lobby:**
 - `/server <server>`: Connect to the specified server.
 - `/server`: Show and select saved servers.
-- `/connect <name>`: Join the room (after connecting to a server).
+- `/create <room>`: Create and select a room.
+- `/connect <room>`: Select an existing room.
+- `/join <player_name>`: Join the selected room as a player.
 - `/start`: The host starts the round.
 - `/exit`: Quit Tuno.
 
@@ -94,7 +96,7 @@ tuno
 &nbsp;
 ## Todo
 
-- [ ] Multiple game rooms
+- [x] Multiple game rooms
 - [ ] House rules
 - [ ] More players
 - [ ] Chat

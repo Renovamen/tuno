@@ -61,6 +61,7 @@ Screen {
     height: auto;
     color: $accent;
     content-align: center middle;
+    padding: 1 0 0 0;
 }
 
 #hand-section {

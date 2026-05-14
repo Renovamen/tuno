@@ -4,6 +4,7 @@ from tuno.protocol.messages import (
     ProtocolError,
     decode_client_message,
     decode_json_message,
+    decode_server_message,
     encode_message,
 )
 
@@ -15,6 +16,17 @@ class ProtocolTests(unittest.TestCase):
         """Round-trip a valid client message through the JSON protocol helpers."""
         raw = encode_message("join", name="Alice")
         self.assertEqual(decode_client_message(raw), {"type": "join", "name": "Alice"})
+
+    def test_accepts_room_protocol_messages(self) -> None:
+        """Accept room-selection client and server message envelopes."""
+        self.assertEqual(
+            decode_client_message(encode_message("create_room", name="Table 1")),
+            {"type": "create_room", "name": "Table 1"},
+        )
+        self.assertEqual(
+            decode_server_message(encode_message("room_closed", message="Room closed.")),
+            {"type": "room_closed", "message": "Room closed."},
+        )
 
     def test_rejects_unknown_type(self) -> None:
         """Reject protocol messages that declare an unsupported type."""

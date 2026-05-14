@@ -13,6 +13,7 @@ if TYPE_CHECKING:
 
 ConnectFn = Callable[[Optional[str], Optional[str]], Awaitable[None]]
 ConnectServerFn = Callable[[str], Awaitable[None]]
+RoomFn = Callable[[str], Awaitable[None]]
 SendFn = Callable[[str], Awaitable[None]]
 ExitFn = Callable[[], Awaitable[None]]
 FeedbackFn = Callable[[str], None]
@@ -26,6 +27,8 @@ class CommandDispatchContext:
     state: Dict[str, Any]
     connect: ConnectFn
     connect_server: ConnectServerFn
+    join_room: RoomFn
+    create_room: RoomFn
     send: Callable[..., Awaitable[None]]
     exit_client: ExitFn
     set_command_feedback: FeedbackFn
@@ -43,6 +46,8 @@ async def dispatch_command(
     state: Dict[str, Any],
     connect: ConnectFn,
     connect_server: ConnectServerFn,
+    join_room: RoomFn,
+    create_room: RoomFn,
     send: Callable[..., Awaitable[None]],
     exit_client: ExitFn,
     set_command_feedback: FeedbackFn,
@@ -57,6 +62,8 @@ async def dispatch_command(
         state=state,
         connect=connect,
         connect_server=connect_server,
+        join_room=join_room,
+        create_room=create_room,
         send=send,
         exit_client=exit_client,
         set_command_feedback=set_command_feedback,
@@ -64,7 +71,9 @@ async def dispatch_command(
     )
     handlers: Dict[Any, CommandHandler] = {
         command_defs.SERVER_COMMAND: _dispatch_server,
-        command_defs.CONNECT_COMMAND: _dispatch_connect,
+        command_defs.CONNECT_COMMAND: _dispatch_connect_room,
+        command_defs.CREATE_ROOM_COMMAND: _dispatch_create_room,
+        command_defs.JOIN_PLAYER_COMMAND: _dispatch_join_player,
         command_defs.START_COMMAND: _dispatch_start,
         command_defs.PLAY_COMMAND: _dispatch_play,
         command_defs.DRAW_COMMAND: _dispatch_draw,
@@ -85,9 +94,18 @@ async def _dispatch_server(command: ParsedCommand, context: CommandDispatchConte
     return context.say_uno_next
 
 
-async def _dispatch_connect(command: ParsedCommand, context: CommandDispatchContext) -> bool:
-    name = command.args[0] if command.args else context.preferred_name
-    await context.connect(player_name=name or None)
+async def _dispatch_connect_room(command: ParsedCommand, context: CommandDispatchContext) -> bool:
+    await context.join_room(command.args[0])
+    return context.say_uno_next
+
+
+async def _dispatch_create_room(command: ParsedCommand, context: CommandDispatchContext) -> bool:
+    await context.create_room(command.args[0])
+    return context.say_uno_next
+
+
+async def _dispatch_join_player(command: ParsedCommand, context: CommandDispatchContext) -> bool:
+    await context.connect(player_name=command.args[0])
     return context.say_uno_next
 
 
