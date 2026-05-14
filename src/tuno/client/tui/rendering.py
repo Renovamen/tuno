@@ -112,11 +112,19 @@ def player_table(state: Dict[str, Any]) -> RenderableType:
     table.add_column("#Cards")
 
     for player in players:
-        prefix = "❯" if player.get("player_id") == state.get("current_player_id") else " "
+        is_current = player.get("player_id") == state.get("current_player_id")
+        prefix = "❯" if is_current else " "
+
         name = escape(str(player["name"]))
         host = " [host]" if player.get("player_id") == state.get("host_player_id") else ""
         me = " (you)" if player.get("player_id") == state.get("your_player_id") else ""
-        table.add_row(prefix, f"{name}{host}{me}", str(player["card_count"]))
+
+        table.add_row(
+            prefix,
+            f"{name}{host}{me}",
+            str(player["card_count"]),
+            style="bold" if is_current else None,
+        )
 
     return table
 
