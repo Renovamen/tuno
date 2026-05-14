@@ -183,6 +183,10 @@ class TunoLobby(DurableObject):
             await self._send_room_list(ws)
             return
 
+        if payload["type"] == "exit_room":
+            await self._exit_room(ws, room_name, game, attachment)
+            return
+
         result = apply_action(game, attachment.get("player_id") or None, payload)
         # Persist the player id in the socket attachment so future messages and
         # hibernation wake-ups can identify the same player.
@@ -195,6 +199,23 @@ class TunoLobby(DurableObject):
             # A deliberate /leave by the last player closes the room immediately and
             # returns any remaining room sockets to the room list.
             await self._delete_room(room_name)
+
+    async def _exit_room(self, ws, room_name: str, game: GameState, attachment: dict) -> None:
+        """Return one websocket to room-selection mode without closing it."""
+        player_id = attachment.get("player_id")
+        if player_id:
+            try:
+                game.remove_player(player_id)
+            except GameError:
+                # The attachment may be stale after hibernation; leaving the room should
+                # still return the socket to room-selection mode.
+                pass
+
+        ws.serializeAttachment(json.dumps({"room": "", "player_id": ""}))
+        self._send_json(ws, {"type": "room_left", "message": "Left room. Choose another room."})
+        await self._send_room_list(ws)
+        await self._broadcast_state(room_name)
+        await self._delete_room_if_empty(room_name)
 
     async def _broadcast_state(self, room_name: str) -> None:
         """Send fresh game snapshots to every open websocket in one room."""

@@ -249,11 +249,12 @@ class ClientRuntime:
             self.player_id = None
             self.state = {}
             self._render_state()
-        elif kind == "room_closed":
+        elif kind in {"room_closed", "room_left"}:
             self._clear_pending_server_response()
             self.selected_room_name = None
             self.player_id = None
             self.state = {}
+            self.say_uno_next = False
             self._render_state()
         elif kind == "room_list":
             self._clear_pending_server_response()
@@ -275,6 +276,9 @@ class ClientRuntime:
         """Send one action to the server or surface a local transport error."""
         if not self.api:
             self._set_feedback("Command error: Connect first.")
+            return
+        if kind == "exit_room" and self.selected_room_name is None:
+            self._set_feedback("Command error: Connect to a room first with /connect <room>.")
             return
 
         try:

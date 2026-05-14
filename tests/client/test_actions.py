@@ -54,6 +54,7 @@ class ClientActionTests(unittest.IsolatedAsyncioTestCase):
             "/draw",
             "/pass",
             "/uno",
+            "/exit_room",
             "/exit",
         ):
             await dispatch_command(
@@ -85,6 +86,7 @@ class ClientActionTests(unittest.IsolatedAsyncioTestCase):
                 ("draw_card", {}),
                 ("pass_turn", {}),
                 ("set_uno", {"armed": True}),
+                ("exit_room", {}),
             ],
         )
         self.assertEqual(exited, [True])

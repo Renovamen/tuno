@@ -77,6 +77,19 @@ class ClientRuntimeTests(unittest.IsolatedAsyncioTestCase):
         # Step 2: The command layer should receive a local connection error.
         self.assertEqual(callbacks.feedback, ["Command error: Connect first."])
 
+    async def test_exit_room_requires_selected_room(self) -> None:
+        """Reject `/exit_room` before the websocket has selected a room."""
+        callbacks = RuntimeCallbacks()
+        runtime = self.build_runtime(callbacks)
+        runtime.api = FakeApi()  # type: ignore[assignment]
+
+        await runtime.send("exit_room")
+
+        self.assertEqual(
+            callbacks.feedback,
+            ["Command error: Connect to a room first with /connect <room>."],
+        )
+
     async def test_join_game_requires_selected_room(self) -> None:
         """Require room selection before `/join <player_name>` sends a join action."""
         callbacks = RuntimeCallbacks()
@@ -155,20 +168,22 @@ class ClientRuntimeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(runtime.state, {})
 
     async def test_room_closed_message_returns_to_room_lobby(self) -> None:
-        """Clear room-scoped player and game state after the server closes a room."""
+        """Clear room-scoped player and game state after leaving or closing a room."""
         callbacks = RuntimeCallbacks()
         runtime = self.build_runtime(callbacks)
         runtime.selected_room_name = "main"
         runtime.player_id = "p1"
         runtime.state = {"started": True}
+        runtime.say_uno_next = True
 
         # Step 1: Simulate the server closing the selected room.
-        await runtime.handle_message({"type": "room_closed", "message": "Room closed."})
+        await runtime.handle_message({"type": "room_left", "message": "Left room."})
 
         # Step 2: The client should return to room-selection state.
         self.assertIsNone(runtime.selected_room_name)
         self.assertIsNone(runtime.player_id)
         self.assertEqual(runtime.state, {})
+        self.assertFalse(runtime.say_uno_next)
 
     async def test_close_current_server_resets_runtime_state(self) -> None:
         """Close the active transport and clear all server-scoped runtime state."""

@@ -70,6 +70,7 @@ COMMAND_SPECS_BY_NAME = {
         CommandSpec("draw", "/draw"),
         CommandSpec("pass", "/pass"),
         CommandSpec("uno", "/uno"),
+        CommandSpec("exit_room", "/exit_room"),
         CommandSpec("help", "/help"),
         CommandSpec("exit", "/exit"),
     )
@@ -86,8 +87,33 @@ PLAY_COMMAND = COMMAND_SPECS_BY_NAME["play"]
 DRAW_COMMAND = COMMAND_SPECS_BY_NAME["draw"]
 PASS_COMMAND = COMMAND_SPECS_BY_NAME["pass"]
 UNO_COMMAND = COMMAND_SPECS_BY_NAME["uno"]
+EXIT_ROOM_COMMAND = COMMAND_SPECS_BY_NAME["exit_room"]
 HELP_COMMAND = COMMAND_SPECS_BY_NAME["help"]
 EXIT_COMMAND = COMMAND_SPECS_BY_NAME["exit"]
+
+SERVER_SELECTION_COMMANDS = (
+    SERVER_COMMAND.template,
+    HELP_COMMAND.template,
+    EXIT_COMMAND.template,
+)
+ROOM_SELECTION_COMMANDS = (
+    CONNECT_COMMAND.template,
+    CREATE_ROOM_COMMAND.template,
+    HELP_COMMAND.template,
+    EXIT_COMMAND.template,
+)
+ROOM_EXIT_COMMANDS = (
+    HELP_COMMAND.template,
+    EXIT_ROOM_COMMAND.template,
+    EXIT_COMMAND.template,
+)
+PLAYER_JOIN_COMMANDS = (JOIN_PLAYER_COMMAND.template, *ROOM_EXIT_COMMANDS)
+PLAYER_TURN_COMMANDS = (
+    PLAY_COMMAND.template,
+    DRAW_COMMAND.template,
+    PASS_COMMAND.template,
+    UNO_COMMAND.template,
+)
 
 VALID_PLAY_COLORS = (
     "red",
@@ -140,44 +166,40 @@ def derive_available_commands(
     uno_armed: bool,
 ) -> List[str]:
     if not connected:
-        return [SERVER_COMMAND.template, HELP_COMMAND.template, EXIT_COMMAND.template]
+        return list(SERVER_SELECTION_COMMANDS)
 
     if not room_selected:
-        return [
-            CONNECT_COMMAND.template,
-            CREATE_ROOM_COMMAND.template,
-            HELP_COMMAND.template,
-            EXIT_COMMAND.template,
-        ]
+        return list(ROOM_SELECTION_COMMANDS)
 
     if not joined:
-        return [JOIN_PLAYER_COMMAND.template, HELP_COMMAND.template, EXIT_COMMAND.template]
+        return list(PLAYER_JOIN_COMMANDS)
 
     if state.get("finished"):
-        commands = [HELP_COMMAND.template, EXIT_COMMAND.template]
-        if state.get("can_start"):
-            commands.insert(0, START_COMMAND.template)
-        return commands
+        return _with_optional_start(state)
     if not state.get("started"):
-        commands = [HELP_COMMAND.template, EXIT_COMMAND.template]
-        if state.get("can_start"):
-            commands.insert(0, START_COMMAND.template)
-        return commands
+        return _with_optional_start(state)
     if not state.get("your_turn"):
-        return [HELP_COMMAND.template, EXIT_COMMAND.template]
+        return list(ROOM_EXIT_COMMANDS)
 
-    commands: List[str] = [PLAY_COMMAND.template]
+    commands: List[str] = [PLAYER_TURN_COMMANDS[0]]
 
     if state.get("can_draw"):
-        commands.append(DRAW_COMMAND.template)
+        commands.append(PLAYER_TURN_COMMANDS[1])
     if state.get("can_pass"):
-        commands.append(PASS_COMMAND.template)
+        commands.append(PLAYER_TURN_COMMANDS[2])
     if state.get("uno_hint") or uno_armed:
-        commands.append(UNO_COMMAND.template)
+        commands.append(PLAYER_TURN_COMMANDS[3])
 
-    commands.append(HELP_COMMAND.template)
-    commands.append(EXIT_COMMAND.template)
+    commands.extend(ROOM_EXIT_COMMANDS)
 
+    return commands
+
+
+def _with_optional_start(state: Dict[str, object]) -> List[str]:
+    """Return lobby/finished commands, optionally prefixed with host start."""
+    commands = list(ROOM_EXIT_COMMANDS)
+    if state.get("can_start"):
+        commands.insert(0, START_COMMAND.template)
     return commands
 
 

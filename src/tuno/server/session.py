@@ -140,6 +140,10 @@ class RoomServer:
             await self._handle_room_selection(websocket, payload)
             return
 
+        if payload["type"] == "exit_room":
+            await self._exit_room(websocket, connection)
+            return
+
         session = self.rooms.get(connection.room_name)
         if session is None:
             connection.room_name = None
@@ -191,6 +195,23 @@ class RoomServer:
 
         await self._send(websocket, "room_joined", name=room_name)
         await session.send_initial_state(websocket)
+        await self._broadcast_room_list()
+
+    async def _exit_room(self, websocket: object, connection: RoomConnection) -> None:
+        """Return one websocket to room-selection mode without closing it."""
+        room_name = connection.room_name
+        if room_name is None:
+            await self._send(websocket, "error", message="Choose a room first.")
+            return
+
+        session = self.rooms.get(room_name)
+        connection.room_name = None
+        if session is not None:
+            await session.detach(websocket)
+            await self._delete_room_if_empty(room_name)
+
+        await self._send(websocket, "room_left", message="Left room. Choose another room.")
+        await self._send_room_list(websocket)
         await self._broadcast_room_list()
 
     async def _delete_room_if_empty(self, room_name: str) -> None:

@@ -79,6 +79,7 @@ async def dispatch_command(
         command_defs.DRAW_COMMAND: _dispatch_draw,
         command_defs.PASS_COMMAND: _dispatch_pass,
         command_defs.UNO_COMMAND: _dispatch_uno,
+        command_defs.EXIT_ROOM_COMMAND: _dispatch_exit_room,
         command_defs.HELP_COMMAND: _dispatch_help,
         command_defs.EXIT_COMMAND: _dispatch_exit,
     }
@@ -144,6 +145,11 @@ async def _dispatch_uno(command: ParsedCommand, context: CommandDispatchContext)
     if not context.say_uno_next:
         await context.send("set_uno", armed=True)
     return True
+
+
+async def _dispatch_exit_room(command: ParsedCommand, context: CommandDispatchContext) -> bool:
+    await context.send("exit_room")
+    return False
 
 
 async def _dispatch_help(command: ParsedCommand, context: CommandDispatchContext) -> bool:

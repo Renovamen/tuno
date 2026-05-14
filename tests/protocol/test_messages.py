@@ -24,8 +24,16 @@ class ProtocolTests(unittest.TestCase):
             {"type": "create_room", "name": "Table 1"},
         )
         self.assertEqual(
+            decode_client_message(encode_message("exit_room")),
+            {"type": "exit_room"},
+        )
+        self.assertEqual(
             decode_server_message(encode_message("room_closed", message="Room closed.")),
             {"type": "room_closed", "message": "Room closed."},
+        )
+        self.assertEqual(
+            decode_server_message(encode_message("room_left", message="Left room.")),
+            {"type": "room_left", "message": "Left room."},
         )
 
     def test_rejects_unknown_type(self) -> None:

@@ -21,12 +21,14 @@ CLIENT_MESSAGE_TYPES = {
     "draw_card",
     "pass_turn",
     "leave",
+    "exit_room",
     "set_uno",
 }
 
 SERVER_MESSAGE_TYPES = {
     "info",
     "room_closed",
+    "room_left",
     "room_joined",
     "room_list",
     "welcome",
