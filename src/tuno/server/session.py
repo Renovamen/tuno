@@ -6,9 +6,14 @@ import asyncio
 from dataclasses import dataclass
 from typing import Dict, Optional
 
-from tuno.core.game import MAX_PLAYERS, GameError, GameState
+from tuno.core.game import GameError, GameState
 from tuno.protocol.messages import encode_message
 from tuno.server.actions import apply_action
+from tuno.server.rooms import (
+    ROOM_MESSAGES,
+    room_list_from_states,
+    validate_room_selection_payload,
+)
 
 
 @dataclass
@@ -55,7 +60,7 @@ class GameSession:
 
     async def send_initial_state(self, websocket: object) -> None:
         """Send the first info/state payloads for an already registered websocket."""
-        await self._send(websocket, "info", message="Connected. Join with your player name.")
+        await self._send(websocket, "info", message=ROOM_MESSAGES.connected_join)
         await self._broadcast_state()
 
     async def detach(self, websocket: object) -> None:
@@ -113,7 +118,7 @@ class RoomServer:
     async def attach(self, websocket: object) -> bool:
         """Register a websocket in room-selection mode."""
         self.connections[websocket] = RoomConnection(websocket=websocket)
-        await self._send(websocket, "info", message="Connected. Choose a room.")
+        await self._send(websocket, "info", message=ROOM_MESSAGES.connected_choose)
         await self._send_room_list(websocket)
         return True
 
@@ -147,7 +152,7 @@ class RoomServer:
         session = self.rooms.get(connection.room_name)
         if session is None:
             connection.room_name = None
-            await self._send(websocket, "info", message="Room closed. Choose another room.")
+            await self._send(websocket, "info", message=ROOM_MESSAGES.closed)
             await self._send_room_list(websocket)
             return
 
@@ -157,34 +162,31 @@ class RoomServer:
             await self._broadcast_room_list()
 
     async def _handle_room_selection(self, websocket: object, payload: dict) -> None:
-        kind = payload["type"]
-        if kind not in {"create_room", "join_room"}:
-            await self._send(websocket, "error", message="Choose a room first.")
+        validation = validate_room_selection_payload(payload)
+        if validation.error_message:
+            await self._send(websocket, "error", message=validation.error_message)
             return
-
-        room_name = _normalize_room_name(payload.get("name", ""))
-        if not room_name:
-            await self._send(websocket, "error", message="Room name is required.")
-            return
+        kind = validation.command
+        room_name = validation.room_name
 
         async with self._lock:
             if kind == "create_room":
                 if room_name in self.rooms:
-                    await self._send(websocket, "error", message="Room name already exists.")
+                    await self._send(websocket, "error", message=ROOM_MESSAGES.name_exists)
                     return
                 if len(self.rooms) >= self.MAX_ROOMS:
-                    await self._send(websocket, "error", message="Server has too many rooms.")
+                    await self._send(websocket, "error", message=ROOM_MESSAGES.too_many)
                     return
                 self.rooms[room_name] = GameSession()
             elif room_name not in self.rooms:
-                await self._send(websocket, "error", message="Room does not exist.")
+                await self._send(websocket, "error", message=ROOM_MESSAGES.not_found)
                 return
 
             session = self.rooms[room_name]
             if len(session.connections) >= session.MAX_CONNECTIONS:
                 if kind == "create_room" and not session.connections:
                     self.rooms.pop(room_name, None)
-                await self._send(websocket, "error", message="Room is at capacity.")
+                await self._send(websocket, "error", message=ROOM_MESSAGES.at_capacity)
                 close = getattr(websocket, "close", None)
                 if callable(close):
                     await close()
@@ -201,7 +203,7 @@ class RoomServer:
         """Return one websocket to room-selection mode without closing it."""
         room_name = connection.room_name
         if room_name is None:
-            await self._send(websocket, "error", message="Choose a room first.")
+            await self._send(websocket, "error", message=ROOM_MESSAGES.choose_first)
             return
 
         session = self.rooms.get(room_name)
@@ -210,7 +212,7 @@ class RoomServer:
             await session.detach(websocket)
             await self._delete_room_if_empty(room_name)
 
-        await self._send(websocket, "room_left", message="Left room. Choose another room.")
+        await self._send(websocket, "room_left", message=ROOM_MESSAGES.left)
         await self._send_room_list(websocket)
         await self._broadcast_room_list()
 
@@ -227,7 +229,7 @@ class RoomServer:
                 await self._send(
                     connection.websocket,
                     "room_closed",
-                    message="Room closed. Choose another room.",
+                    message=ROOM_MESSAGES.closed,
                 )
                 await self._send_room_list(connection.websocket)
 
@@ -241,29 +243,7 @@ class RoomServer:
 
     def room_list(self) -> list[dict[str, object]]:
         """Return public room metadata sorted by room name."""
-        return [
-            {
-                "name": name,
-                "status": _room_status(session.state),
-                "player_count": len(session.state.players),
-                "max_players": MAX_PLAYERS,
-            }
-            for name, session in sorted(self.rooms.items())
-        ]
+        return room_list_from_states({name: session.state for name, session in self.rooms.items()})
 
     async def _send(self, websocket: object, kind: str, **payload: object) -> None:
         await websocket.send(encode_message(kind, **payload))
-
-
-def _normalize_room_name(value: object) -> str:
-    """Normalize a user-entered room name for uniqueness and display."""
-    return str(value).strip()
-
-
-def _room_status(state: GameState) -> str:
-    """Return a compact room status label for the room list."""
-    if state.finished:
-        return "Finished"
-    if state.started:
-        return "In game"
-    return "Lobby"

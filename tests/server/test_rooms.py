@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import sys
+import types
 import unittest
 from pathlib import Path
 
@@ -80,6 +81,30 @@ class FakeDurableObjectContext:
     def getWebSockets(self) -> list[FakeWebSocket]:
         """Return sockets that the Worker lobby should consider for broadcasts/cleanup."""
         return self.websockets
+
+
+def install_worker_runtime_stub() -> None:
+    """Provide the minimal workers runtime surface needed by Worker unit tests."""
+    workers_module = types.ModuleType("workers")
+
+    class DurableObject:
+        def __init__(self, ctx, env):
+            self.ctx = ctx
+            self.env = env
+
+    class Response:
+        def __init__(self, body=None, *, status=200, web_socket=None):
+            self.body = body
+            self.status = status
+            self.web_socket = web_socket
+
+    class WorkerEntrypoint:
+        pass
+
+    workers_module.DurableObject = DurableObject
+    workers_module.Response = Response
+    workers_module.WorkerEntrypoint = WorkerEntrypoint
+    sys.modules["workers"] = workers_module
 
 
 class RoomServerTests(unittest.IsolatedAsyncioTestCase):
@@ -210,6 +235,8 @@ class WorkerLobbyLifecycleTests(unittest.IsolatedAsyncioTestCase):
     async def test_closing_one_non_player_socket_keeps_room_for_other_socket(self) -> None:
         """Keep a Worker room alive when a closing spectator socket is not the last socket."""
         from tuno.core.game import GameState
+
+        install_worker_runtime_stub()
         from tuno.server.worker import TunoLobby
 
         # Step 1: Model two hibernated Worker sockets attached to the same room.
@@ -232,6 +259,8 @@ class WorkerLobbyLifecycleTests(unittest.IsolatedAsyncioTestCase):
     async def test_exit_room_returns_worker_socket_to_room_lobby(self) -> None:
         """Handle Worker /exit_room by clearing attachment metadata and removing player."""
         from tuno.core.game import GameState
+
+        install_worker_runtime_stub()
         from tuno.server.worker import TunoLobby
 
         # Step 1: Seed one Worker room with two players and two attached sockets.
