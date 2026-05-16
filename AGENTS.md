@@ -42,8 +42,10 @@ python -m ruff format --check . # Check formatting
 
 ## Code conventions
 
-- Update the unit tests under `tests` after making functional changes.
-- **DO NOT add unit tests for rendering-only or UI-only behavior**, such as height, bold text, or markup. Only add tests for functional behavior. Note that important displayed info, such as core game info, status, commands, and update notes, is considered functional behavior.
+- Update unit tests under `tests` whenever a functional change affects behavior.
+- Do not add tests for rendering-only details such as height, bold text, or markup. Do test displayed information that affects gameplay or user flow, including core game info, status, commands, and update notes.
+- Keep tests focused on public behavior: core logic, user-visible flows, and meaningful edge cases. Avoid tests for private helpers, implementation details, or refactor-only seams unless the helper is a stable public contract.
 - After functional code changes (not documentation or UI-only changes), run the tests, lint checks, and formatting checks. Fix all errors and warnings.
-- Favor simple, maintainable solutions. Keep functions small and focused.
-- Add comments in English for important functions or code blocks.
+- Keep every function focused and under 50 lines. If it exceeds this, split it.
+- Use English docstrings for important functions and English comments for non-obvious code blocks, especially to explain hidden constraints, workarounds, or subtle invariants. Do not add comments that merely restate clear names or self-explanatory code.
+- Do not preserve backward compatibility unless the user explicitly asks for it.
