@@ -162,7 +162,7 @@ class TunoApp(App):
 
             with Vertical(id="hand-section"):
                 yield Static(
-                    "Hand (scroll for more)",
+                    "Hand",
                     id="hand-title",
                     classes="section-title",
                 )
@@ -181,7 +181,7 @@ class TunoApp(App):
 
                 with Vertical(id="recent-activity-section"):
                     yield Static(
-                        "Recent Activity (scroll for more)",
+                        "Recent Activity",
                         id="recent-activity-title",
                         classes="section-title",
                     )
@@ -303,6 +303,33 @@ class TunoApp(App):
         """Delegate one outbound server action to the runtime service."""
         await self.runtime.send(kind, **payload)
 
+    def _update_scroll_overflow_indicators(self) -> None:
+        """Append '(scroll for more)' only when scroll content exceeds visible height.
+
+        Heights are set to 1fr in app.tcss (flex children of a 1fr grid row), so they
+        are computed dynamically by the layout engine and cannot be mirrored as a Python
+        constant. Overflow is detected at runtime via virtual_size vs size after layout.
+        """
+        pairs = [
+            ("hand-scroll", "hand-title", "Hand"),
+            ("recent-activity-scroll", "recent-activity-title", "Recent Activity"),
+        ]
+
+        for scroll_id, title_id, base_title in pairs:
+            try:
+                scroll = self.query_one(f"#{scroll_id}", VerticalScroll)
+                title = self.query_one(f"#{title_id}", Static)
+            except Exception:
+                continue
+
+            # size.height == 0 means widget not yet laid out; treat as no overflow
+            overflow = scroll.virtual_size.height > scroll.size.height > 0
+            title.update(f"{base_title} (scroll for more)" if overflow else base_title)
+
+    def on_resize(self) -> None:
+        """Recheck overflow indicators whenever the terminal is resized."""
+        self.call_after_refresh(self._update_scroll_overflow_indicators)
+
     def render_state(self) -> None:
         """Re-render all state-derived widgets from the latest local snapshot."""
         server_target = self.api.url if self.api else self.selected_server_url or "No server"
@@ -327,6 +354,7 @@ class TunoApp(App):
         self._render_recent_activity(view_state)
         self._render_command_area(view_state)
         self._render_update_notice()
+        self.call_after_refresh(self._update_scroll_overflow_indicators)
 
     def _render_logo(self) -> None:
         logo = self.query_one("#tuno-logo", Static)
