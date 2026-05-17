@@ -126,6 +126,16 @@ class TunoLobby(DurableObject):
         attachment = self._attachment_for(ws)
         room_name = attachment.get("room")
         player_id = attachment.get("player_id")
+
+        # Explicitly send a WebSocket close frame back to the client. The Cloudflare
+        # Hibernation runtime does not auto-emit one on its own, so without this call
+        # the client's websockets.close() waits the full close_timeout (default 10s)
+        # for an ack that never arrives.
+        try:
+            ws.close(1000, "")
+        except Exception:
+            pass
+
         game = self.rooms.get(room_name or "")
 
         if game is not None and player_id:
