@@ -121,47 +121,14 @@ class GameState:
             self._reset_to_lobby()
             return
         if not self.started or self.finished:
-            self.status_message = lobby_left(player.name)
-            self._record_event(self.status_message)
-
-            if self.current_player_index >= len(self.players):
-                self.current_player_index = 0
-
+            self._record_lobby_departure(player)
             return
 
         if len(self.players) <= 1:
-            self.finished = True
-            self.has_drawn_this_turn = False
-            self.drawn_card = None
-            self.current_player_index = 0
-
-            if self.players:
-                winner = self.players[0]
-                self.winner_id = winner.player_id
-                self.status_message = disconnect_wins_by_default(player.name, winner.name)
-            else:
-                self.winner_id = None
-                self.status_message = disconnect_game_ended(player.name)
-
-            self._record_event(self.status_message)
+            self._finish_after_disconnect(player)
             return
 
-        self.winner_id = None
-
-        if index < self.current_player_index:
-            self.current_player_index -= 1
-        elif index == self.current_player_index:
-            if self.direction < 0:
-                self.current_player_index = (self.current_player_index - 1) % len(self.players)
-            else:
-                self.current_player_index = self.current_player_index % len(self.players)
-            self.has_drawn_this_turn = False
-            self.drawn_card = None
-        else:
-            self.current_player_index %= len(self.players)
-
-        self.status_message = disconnect_turn_passed(player.name, self.current_player.name)
-        self._record_event(self.status_message)
+        self._continue_after_disconnect(index, player)
 
     def start(self, player_id: str) -> None:
         """Start a new round, deal hands, and reveal the first playable discard."""
@@ -200,54 +167,13 @@ class GameState:
     ) -> None:
         """Play a card for the active player, enforcing turn and card legality."""
         self._ensure_active_player(player_id)
-
         player = self.current_player
         assert player is not None
 
-        if hand_index < 0 or hand_index >= len(player.hand):
-            raise GameError("Invalid card selection.", code="invalid_selection")
-
-        card = player.hand[hand_index]
-
-        # The newly drawn card lives at the end of the hand. Comparing object identity is
-        # unreliable once a game is serialized and restored (for example in the Cloudflare
-        # Durable Object path), so keep this rule value-based and position-based instead.
-        if (
-            self.has_drawn_this_turn
-            and self.drawn_card is not None
-            and (hand_index != len(player.hand) - 1 or card != self.drawn_card)
-        ):
-            raise GameError("After drawing, you may only play the card you just drew.")
-        if not self._is_play_legal(player, card):
-            raise GameError("That card can't be played right now.", code="illegal_play")
-
-        if card.rank in {"wild", "wild_draw_four"}:
-            if chosen_color not in COLORS:
-                raise GameError("Wild cards require a chosen color.", code="wild_needs_color")
-        else:
-            chosen_color = card.color
-
-        if card.rank == "wild_draw_four" and any(
-            other.color == self.current_color
-            for i, other in enumerate(player.hand)
-            if i != hand_index
-        ):
-            raise GameError(
-                "Wild Draw Four can only be played when you have no card matching the current color.",
-                code="wild_draw_four_restricted",
-            )
-
-        played = player.hand.pop(hand_index)
-        self._deck.discard_pile.append(played)
-        self.current_color = chosen_color
-        self.status_message = played_card(
-            player.name, played.event_markup(display_color=chosen_color)
-        )
-
-        # The server remains the source of truth for the immediate UNO penalty.
-        if len(player.hand) == 1 and not say_uno:
-            self._deck.draw_to_hand(player, 2)
-            self.status_message += forgot_uno(player.name)
+        card = self._card_for_play(player, hand_index)
+        chosen_color = self._resolve_play_color(card, chosen_color)
+        self._validate_wild_draw_four(player, hand_index, card)
+        played = self._commit_play(player, hand_index, chosen_color, say_uno)
 
         if not player.hand:
             self.finished = True
@@ -259,6 +185,105 @@ class GameState:
         skip_steps = self._apply_card_effect(played)
         self._advance_turn(skip_steps)
         self._record_event(self.status_message)
+
+    def _record_lobby_departure(self, player: PlayerState) -> None:
+        self.status_message = lobby_left(player.name)
+        self._record_event(self.status_message)
+
+        if self.current_player_index >= len(self.players):
+            self.current_player_index = 0
+
+    def _finish_after_disconnect(self, player: PlayerState) -> None:
+        self.finished = True
+        self.has_drawn_this_turn = False
+        self.drawn_card = None
+        self.current_player_index = 0
+
+        if self.players:
+            winner = self.players[0]
+            self.winner_id = winner.player_id
+            self.status_message = disconnect_wins_by_default(player.name, winner.name)
+        else:
+            self.winner_id = None
+            self.status_message = disconnect_game_ended(player.name)
+
+        self._record_event(self.status_message)
+
+    def _continue_after_disconnect(self, removed_index: int, player: PlayerState) -> None:
+        self.winner_id = None
+        self._move_turn_after_disconnect(removed_index)
+        self.status_message = disconnect_turn_passed(player.name, self.current_player.name)
+        self._record_event(self.status_message)
+
+    def _move_turn_after_disconnect(self, removed_index: int) -> None:
+        if removed_index < self.current_player_index:
+            self.current_player_index -= 1
+        elif removed_index == self.current_player_index:
+            if self.direction < 0:
+                self.current_player_index = (self.current_player_index - 1) % len(self.players)
+            else:
+                self.current_player_index %= len(self.players)
+            self.has_drawn_this_turn = False
+            self.drawn_card = None
+        else:
+            self.current_player_index %= len(self.players)
+
+    def _card_for_play(self, player: PlayerState, hand_index: int) -> Card:
+        if hand_index < 0 or hand_index >= len(player.hand):
+            raise GameError("Invalid card selection.", code="invalid_selection")
+
+        card = player.hand[hand_index]
+        if self._violates_drawn_card_rule(player, hand_index, card):
+            raise GameError("After drawing, you may only play the card you just drew.")
+        if not self._is_play_legal(player, card):
+            raise GameError("That card can't be played right now.", code="illegal_play")
+        return card
+
+    def _violates_drawn_card_rule(self, player: PlayerState, hand_index: int, card: Card) -> bool:
+        return bool(
+            self.has_drawn_this_turn
+            and self.drawn_card is not None
+            and (hand_index != len(player.hand) - 1 or card != self.drawn_card)
+        )
+
+    def _resolve_play_color(self, card: Card, chosen_color: Optional[str]) -> Optional[str]:
+        if card.rank not in {"wild", "wild_draw_four"}:
+            return card.color
+        if chosen_color in COLORS:
+            return chosen_color
+        raise GameError("Wild cards require a chosen color.", code="wild_needs_color")
+
+    def _validate_wild_draw_four(self, player: PlayerState, hand_index: int, card: Card) -> None:
+        if card.rank != "wild_draw_four":
+            return
+        if any(
+            other.color == self.current_color
+            for i, other in enumerate(player.hand)
+            if i != hand_index
+        ):
+            raise GameError(
+                "Wild Draw Four can only be played when you have no card matching the current color.",
+                code="wild_draw_four_restricted",
+            )
+
+    def _commit_play(
+        self,
+        player: PlayerState,
+        hand_index: int,
+        chosen_color: Optional[str],
+        say_uno: bool,
+    ) -> Card:
+        played = player.hand.pop(hand_index)
+        self._deck.discard_pile.append(played)
+        self.current_color = chosen_color
+        self.status_message = played_card(
+            player.name, played.event_markup(display_color=chosen_color)
+        )
+
+        if len(player.hand) == 1 and not say_uno:
+            self._deck.draw_to_hand(player, 2)
+            self.status_message += forgot_uno(player.name)
+        return played
 
     def draw_card(self, player_id: str) -> None:
         """Draw one card for the active player and auto-pass if it cannot be played."""

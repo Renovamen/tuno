@@ -66,7 +66,6 @@ def command_candidates(
     top_card: Optional[Dict[str, Any]] = None,
 ) -> List[Dict[str, str]]:
     """Build suggestions for the current raw input and game-visible state."""
-    # Normalize the raw input once, then short-circuit cases that cannot show suggestions.
     template_candidate = command_template_candidate or default_command_template_candidate
     text = raw.strip()
     if not text:
@@ -79,75 +78,190 @@ def command_candidates(
     parts = text.split()
     command = parts[0].lower()
 
-    # For a partially typed command token, show matching commands from the current legal set.
     if len(parts) == 1 and not trailing_space:
-        return [
-            template_candidate(template)
-            for template in available_commands
-            if template.split()[0].startswith(command)
-        ]
+        return _matching_command_candidates(command, available_commands, template_candidate)
 
-    if (
-        card_command_token
-        and command == card_command_token
-        and any(item.split()[0] == card_command_token for item in available_commands)
-    ):
-        # `/play` suggestions are stateful: candidate numbers mirror the visible hand order.
-        if (len(parts) == 1 and trailing_space) or (len(parts) == 2 and not trailing_space):
-            prefix = "" if len(parts) == 1 else parts[1]
-            matches = []
+    return _stateful_candidates(
+        command=command,
+        parts=parts,
+        trailing_space=trailing_space,
+        available_commands=available_commands,
+        card_command_token=card_command_token,
+        connect_command_token=connect_command_token,
+        valid_play_colors=valid_play_colors,
+        hand=hand,
+        rooms=rooms,
+        current_color=current_color,
+        top_card=top_card,
+    )
 
-            for index, card in enumerate(hand, start=1):
-                token = str(index)
-                if token.startswith(prefix) and _is_legal_to_play(card, current_color, top_card):
-                    suffix = " <color>" if card.get("rank") in WILD_RANKS else ""
-                    matches.append(
-                        {
-                            "insert": f"{card_command_token} {token}" + (" " if suffix else ""),
-                            "display": (
-                                f"{card_command_token} {token}{suffix} — "
-                                f"{card.get('short') or card.get('label')}"
-                            ),
-                        }
-                    )
-            return matches
 
-        # After a card number, only wild cards need a second argument for the chosen color.
-        if len(parts) >= 2:
-            try:
-                hand_index = int(parts[1]) - 1
-            except ValueError:
-                return []
+def _stateful_candidates(
+    *,
+    command: str,
+    parts: Sequence[str],
+    trailing_space: bool,
+    available_commands: Sequence[str],
+    card_command_token: str | None,
+    connect_command_token: str | None,
+    valid_play_colors: Sequence[str],
+    hand: Sequence[Dict[str, Any]],
+    rooms: Sequence[Dict[str, Any]],
+    current_color: Optional[str],
+    top_card: Optional[Dict[str, Any]],
+) -> List[Dict[str, str]]:
+    play_candidates = _play_candidates(
+        command=command,
+        parts=parts,
+        trailing_space=trailing_space,
+        available_commands=available_commands,
+        card_command_token=card_command_token,
+        valid_play_colors=valid_play_colors,
+        hand=hand,
+        current_color=current_color,
+        top_card=top_card,
+    )
+    if play_candidates is not None:
+        return play_candidates
 
-            if 0 <= hand_index < len(hand) and hand[hand_index].get("rank") in WILD_RANKS:
-                if (len(parts) == 2 and trailing_space) or (len(parts) == 3 and not trailing_space):
-                    prefix = "" if len(parts) == 2 else parts[2].lower()
-                    return [
-                        {
-                            "insert": f"{card_command_token} {parts[1]} {color}",
-                            "display": f"{card_command_token} {parts[1]} {color}",
-                        }
-                        for color in valid_play_colors
-                        if color.startswith(prefix)
-                    ]
+    connect_candidates = _connect_candidates(
+        command=command,
+        parts=parts,
+        trailing_space=trailing_space,
+        available_commands=available_commands,
+        connect_command_token=connect_command_token,
+        rooms=rooms,
+    )
+    if connect_candidates is not None:
+        return connect_candidates
 
-    # `/connect` suggestions come from the latest room list sent by the server.
-    if (
-        connect_command_token
-        and command == connect_command_token
-        and any(item.split()[0] == connect_command_token for item in available_commands)
-        and ((len(parts) == 1 and trailing_space) or (len(parts) == 2 and not trailing_space))
-    ):
-        prefix = "" if len(parts) == 1 else parts[1]
-        return [
-            {
-                "insert": f"{connect_command_token} {name}",
-                "display": f"{connect_command_token} {name}",
-            }
-            for room in rooms
-            if (name := str(room.get("name", "")).strip()) and name.startswith(prefix)
-        ]
     return []
+
+
+def _matching_command_candidates(
+    command: str,
+    available_commands: Sequence[str],
+    template_candidate: Callable[[str], Dict[str, str]],
+) -> List[Dict[str, str]]:
+    return [
+        template_candidate(template)
+        for template in available_commands
+        if template.split()[0].startswith(command)
+    ]
+
+
+def _play_candidates(
+    *,
+    command: str,
+    parts: Sequence[str],
+    trailing_space: bool,
+    available_commands: Sequence[str],
+    card_command_token: str | None,
+    valid_play_colors: Sequence[str],
+    hand: Sequence[Dict[str, Any]],
+    current_color: Optional[str],
+    top_card: Optional[Dict[str, Any]],
+) -> List[Dict[str, str]] | None:
+    if not _command_available(command, card_command_token, available_commands):
+        return None
+
+    if (len(parts) == 1 and trailing_space) or (len(parts) == 2 and not trailing_space):
+        prefix = "" if len(parts) == 1 else parts[1]
+        return _play_card_candidates(card_command_token, prefix, hand, current_color, top_card)
+
+    if len(parts) < 2:
+        return []
+    return _play_color_candidates(
+        card_command_token, parts, trailing_space, hand, valid_play_colors
+    )
+
+
+def _play_card_candidates(
+    card_command_token: str,
+    prefix: str,
+    hand: Sequence[Dict[str, Any]],
+    current_color: Optional[str],
+    top_card: Optional[Dict[str, Any]],
+) -> List[Dict[str, str]]:
+    matches = []
+    for index, card in enumerate(hand, start=1):
+        token = str(index)
+        if not token.startswith(prefix) or not _is_legal_to_play(card, current_color, top_card):
+            continue
+        suffix = " <color>" if card.get("rank") in WILD_RANKS else ""
+        matches.append(
+            {
+                "insert": f"{card_command_token} {token}" + (" " if suffix else ""),
+                "display": (
+                    f"{card_command_token} {token}{suffix} — "
+                    f"{card.get('short') or card.get('label')}"
+                ),
+            }
+        )
+    return matches
+
+
+def _play_color_candidates(
+    card_command_token: str,
+    parts: Sequence[str],
+    trailing_space: bool,
+    hand: Sequence[Dict[str, Any]],
+    valid_play_colors: Sequence[str],
+) -> List[Dict[str, str]]:
+    try:
+        hand_index = int(parts[1]) - 1
+    except ValueError:
+        return []
+
+    if not (0 <= hand_index < len(hand) and hand[hand_index].get("rank") in WILD_RANKS):
+        return []
+    if not ((len(parts) == 2 and trailing_space) or (len(parts) == 3 and not trailing_space)):
+        return []
+
+    prefix = "" if len(parts) == 2 else parts[2].lower()
+    return [
+        {
+            "insert": f"{card_command_token} {parts[1]} {color}",
+            "display": f"{card_command_token} {parts[1]} {color}",
+        }
+        for color in valid_play_colors
+        if color.startswith(prefix)
+    ]
+
+
+def _connect_candidates(
+    *,
+    command: str,
+    parts: Sequence[str],
+    trailing_space: bool,
+    available_commands: Sequence[str],
+    connect_command_token: str | None,
+    rooms: Sequence[Dict[str, Any]],
+) -> List[Dict[str, str]] | None:
+    if not _command_available(command, connect_command_token, available_commands):
+        return None
+    if not ((len(parts) == 1 and trailing_space) or (len(parts) == 2 and not trailing_space)):
+        return []
+
+    prefix = "" if len(parts) == 1 else parts[1]
+    return [
+        {
+            "insert": f"{connect_command_token} {name}",
+            "display": f"{connect_command_token} {name}",
+        }
+        for room in rooms
+        if (name := str(room.get("name", "")).strip()) and name.startswith(prefix)
+    ]
+
+
+def _command_available(
+    command: str, command_token: str | None, available_commands: Sequence[str]
+) -> bool:
+    return bool(
+        command_token
+        and command == command_token
+        and any(item.split()[0] == command_token for item in available_commands)
+    )
 
 
 def apply_completion(

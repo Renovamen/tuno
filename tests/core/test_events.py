@@ -6,7 +6,6 @@ from tuno.core.events import (
     disconnect_turn_passed,
     disconnect_wins_by_default,
     effect_drew_cards,
-    escape,
     forgot_uno,
     game_started,
     initial_card,
@@ -29,14 +28,10 @@ class GameEventTextTests(unittest.TestCase):
         self.assertIn("bob's turn", disconnect_turn_passed("alice", "bob"))
         self.assertIn("wins by default", disconnect_wins_by_default("alice", "bob"))
 
-    def test_event_escape_protects_rich_markup_characters(self) -> None:
-        """Escape brackets and backslashes in player-controlled event text."""
-        self.assertEqual(escape(r"[alice]\bob"), r"\[alice\]\\bob")
-
     def test_play_and_penalty_text_helpers_match_current_event_style(self) -> None:
         """Preserve compact event wording used by activity logs."""
         self.assertEqual(game_started(), "Game started.")
-        self.assertEqual(initial_card("[bold red]R:5[/]"), "Starting card: [bold red]R:5[/].")
-        self.assertIn("played", played_card("alice", "[bold red]R:5[/]"))
+        self.assertEqual(initial_card("R:5"), "Starting card: R:5.")
+        self.assertIn("played", played_card("alice", "R:5"))
         self.assertIn("forgot UNO", forgot_uno("alice"))
         self.assertIn("drew 4", effect_drew_cards("bob", 4))

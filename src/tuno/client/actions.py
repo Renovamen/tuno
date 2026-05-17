@@ -177,48 +177,21 @@ async def play_card_by_number(
     play_command_token: Optional[str] = None,
 ) -> bool:
     """Validate a displayed hand index locally and send the play request if legal."""
-    if play_command_token is None:
-        from tuno.client.tui.commands import PLAY_COMMAND
-
-        play_command_token = PLAY_COMMAND.token
-
-    if display_number <= 0:
-        set_command_feedback(
-            f"Command error: {play_command_token} requires a positive card number. "
-            f"Example: {play_command_token} 3"
-        )
+    play_command_token = _play_command_token(play_command_token)
+    if not _validate_positive_display_number(
+        display_number, play_command_token, set_command_feedback
+    ):
         return say_uno_next
 
-    player_hand = my_hand(state)
-    hand_index = display_number - 1
-    if hand_index >= len(player_hand):
-        set_command_feedback(
-            f"Illegal play: card {display_number} is out of range for your current hand."
-        )
+    card_selection = _select_displayed_card(display_number, state, set_command_feedback)
+    if card_selection is None:
         return say_uno_next
 
-    card = player_hand[hand_index]
-    if card.get("rank") in WILD_RANKS:
-        if chosen_color is None:
-            set_command_feedback(
-                f"Illegal play: wild cards require a color. Example: {play_command_token} 1 red"
-            )
-            return say_uno_next
-    else:
-        current_color = state.get("current_color")
-        top_card = state.get("top_card") or {}
-        if (
-            current_color
-            and top_card
-            and card.get("color") != current_color
-            and card.get("rank") != top_card.get("rank")
-        ):
-            set_command_feedback(
-                f"Illegal play: {card.get('short') or card.get('label')} does not match "
-                f"current color {current_color} or top card "
-                f"{top_card.get('short') or top_card.get('label')}."
-            )
-            return say_uno_next
+    hand_index, card = card_selection
+    if not _validate_play_choice(
+        card, state, chosen_color, play_command_token, set_command_feedback
+    ):
+        return say_uno_next
 
     await send(
         "play_card",
@@ -228,4 +201,80 @@ async def play_card_by_number(
     )
     render_state()
 
+    return False
+
+
+def _play_command_token(play_command_token: Optional[str]) -> str:
+    if play_command_token is not None:
+        return play_command_token
+
+    from tuno.client.tui.commands import PLAY_COMMAND
+
+    return PLAY_COMMAND.token
+
+
+def _validate_positive_display_number(
+    display_number: int, play_command_token: str, set_command_feedback: FeedbackFn
+) -> bool:
+    if display_number > 0:
+        return True
+
+    set_command_feedback(
+        f"Command error: {play_command_token} requires a positive card number. "
+        f"Example: {play_command_token} 3"
+    )
+    return False
+
+
+def _select_displayed_card(
+    display_number: int, state: Dict[str, Any], set_command_feedback: FeedbackFn
+) -> tuple[int, Dict[str, Any]] | None:
+    player_hand = my_hand(state)
+    hand_index = display_number - 1
+    if hand_index < len(player_hand):
+        return hand_index, player_hand[hand_index]
+
+    set_command_feedback(
+        f"Illegal play: card {display_number} is out of range for your current hand."
+    )
+    return None
+
+
+def _validate_play_choice(
+    card: Dict[str, Any],
+    state: Dict[str, Any],
+    chosen_color: Optional[str],
+    play_command_token: str,
+    set_command_feedback: FeedbackFn,
+) -> bool:
+    if card.get("rank") in WILD_RANKS:
+        return _validate_wild_choice(chosen_color, play_command_token, set_command_feedback)
+
+    current_color = state.get("current_color")
+    top_card = state.get("top_card") or {}
+    if (
+        current_color
+        and top_card
+        and card.get("color") != current_color
+        and card.get("rank") != top_card.get("rank")
+    ):
+        card_label = card.get("short") or card.get("label")
+        top_label = top_card.get("short") or top_card.get("label")
+        set_command_feedback(
+            f"Illegal play: {card_label} does not match current color {current_color} "
+            f"or top card {top_label}."
+        )
+        return False
+    return True
+
+
+def _validate_wild_choice(
+    chosen_color: Optional[str], play_command_token: str, set_command_feedback: FeedbackFn
+) -> bool:
+    if chosen_color is not None:
+        return True
+
+    set_command_feedback(
+        f"Illegal play: wild cards require a color. Example: {play_command_token} 1 red"
+    )
     return False

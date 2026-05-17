@@ -15,7 +15,7 @@ from tuno.client.runtime import ClientRuntime
 from tuno.client.tui.commands import CommandController
 from tuno.client.tui.rendering import render_tuno_logo
 from tuno.client.tui.theme import activate_tuno_theme
-from tuno.client.tui.view_state import build_view_state
+from tuno.client.tui.view_state import ClientViewState, build_view_state
 
 
 class TunoApp(App):
@@ -146,53 +146,58 @@ class TunoApp(App):
 
         with Container(id="main-frame"):
             with Grid(id="main-columns"):
-                with Vertical(id="left-panel"):
-                    yield Static("Local Status", id="local-status-title", classes="section-title")
+                yield from self._compose_left_panel()
+                yield from self._compose_right_panel()
+
+        yield from self._compose_command_zone()
+
+    def _compose_left_panel(self) -> ComposeResult:
+        with Vertical(id="left-panel"):
+            yield Static("Local Status", id="local-status-title", classes="section-title")
+            yield Static("", classes="section-divider")
+            yield Static("Join to view local hand info.", id="local-status-body")
+
+            yield Static("", classes="section-gap")
+            yield Static("", id="tuno-logo")
+
+            with Vertical(id="hand-section"):
+                yield Static(
+                    "Hand (scroll for more)",
+                    id="hand-title",
+                    classes="section-title",
+                )
+                yield Static("", classes="section-divider")
+                with VerticalScroll(id="hand-scroll"):
+                    yield Static("", id="hand-body")
+
+    def _compose_right_panel(self) -> ComposeResult:
+        with Vertical(id="right-panel"):
+            with Vertical(id="right-panel-sections"):
+                yield Static("Players (0/5)", id="players-title", classes="section-title")
+                yield Static("", classes="section-divider")
+                yield Static("No players yet.", id="players-body")
+
+                yield Static("", classes="section-gap")
+
+                with Vertical(id="recent-activity-section"):
+                    yield Static(
+                        "Recent Activity (scroll for more)",
+                        id="recent-activity-title",
+                        classes="section-title",
+                    )
                     yield Static("", classes="section-divider")
-                    yield Static("Join to view local hand info.", id="local-status-body")
+                    yield Static("", id="recent-top-card-body")
+                    yield Static("", id="recent-top-card-divider", classes="section-divider")
+                    with VerticalScroll(id="recent-activity-scroll"):
+                        yield Static("No game events yet.", id="recent-activity-body")
 
-                    yield Static("", classes="section-gap")
-                    yield Static("", id="tuno-logo")
-
-                    with Vertical(id="hand-section"):
-                        yield Static(
-                            "Hand (scroll for more)",
-                            id="hand-title",
-                            classes="section-title",
-                        )
-                        yield Static("", classes="section-divider")
-                        with VerticalScroll(id="hand-scroll"):
-                            yield Static("", id="hand-body")
-
-                with Vertical(id="right-panel"):
-                    with Vertical(id="right-panel-sections"):
-                        yield Static("Players (0/5)", id="players-title", classes="section-title")
-                        yield Static("", classes="section-divider")
-                        yield Static("No players yet.", id="players-body")
-
-                        yield Static("", classes="section-gap")
-
-                        with Vertical(id="recent-activity-section"):
-                            yield Static(
-                                "Recent Activity (scroll for more)",
-                                id="recent-activity-title",
-                                classes="section-title",
-                            )
-                            yield Static("", classes="section-divider")
-                            yield Static("", id="recent-top-card-body")
-                            yield Static(
-                                "", id="recent-top-card-divider", classes="section-divider"
-                            )
-                            with VerticalScroll(id="recent-activity-scroll"):
-                                yield Static("No game events yet.", id="recent-activity-body")
-
+    def _compose_command_zone(self) -> ComposeResult:
         with Container(id="command-zone"):
             with Container(id="command-input-shell"):
                 yield Input(placeholder="/server ws://127.0.0.1:8765", id="command-input")
 
             yield Static("", id="command-meta")
             yield Static("", id="command-suggestions")
-
             yield Static("", id="update-notice")
 
     async def on_mount(self) -> None:
@@ -308,8 +313,14 @@ class TunoApp(App):
             available_commands=available,
         )
         self.query_one("#main-frame").border_title = view_state.border_title
+        self._render_logo()
+        self._render_local_status(view_state)
+        self._render_players(view_state)
+        self._render_recent_activity(view_state)
+        self._render_command_area(view_state)
+        self._render_update_notice()
 
-        # Tuno logo
+    def _render_logo(self) -> None:
         logo = self.query_one("#tuno-logo", Static)
         if not self.state.get("started"):
             logo.display = True
@@ -318,34 +329,29 @@ class TunoApp(App):
             logo.display = False
             logo.update("")
 
-        # Local status section
+    def _render_local_status(self, view_state: ClientViewState) -> None:
         self.query_one("#local-status-body", Static).update(view_state.local_status_body)
-
-        # Cards in hand section
         hand_section = self.query_one("#hand-section", Vertical)
         hand_section.display = view_state.hand_visible
         self.query_one("#hand-body", Static).update(
             view_state.hand_body if view_state.hand_visible else ""
         )
 
-        # Players list section
+    def _render_players(self, view_state: ClientViewState) -> None:
         self.query_one("#players-title", Static).update(view_state.players_title)
         self.query_one("#players-body", Static).update(view_state.players_body)
 
-        # Recent activity section
+    def _render_recent_activity(self, view_state: ClientViewState) -> None:
         recent_activity_section = self.query_one("#recent-activity-section", Vertical)
         recent_activity_section.display = view_state.recent_activity_visible
-        # -- The top card is rendered at the top of this section
         top_card_body = self.query_one("#recent-top-card-body", Static)
         top_card_divider = self.query_one("#recent-top-card-divider", Static)
         top_card_body.display = view_state.top_card_visible
         top_card_divider.display = view_state.top_card_visible
         top_card_body.update(view_state.top_card_body if view_state.top_card_visible else "")
-
-        # -- Followed by the recent activity log
         self.query_one("#recent-activity-body", Static).update(view_state.recent_activity_body)
 
-        # Command input and suggestions
+    def _render_command_area(self, view_state: ClientViewState) -> None:
         self.command_controller.render_meta(
             view_state.command_meta_visible,
             view_state.command_meta_text,
@@ -354,7 +360,7 @@ class TunoApp(App):
         command_input.placeholder = view_state.input_placeholder
         self.command_controller.refresh_assist(command_input.value)
 
-        # Check and notify about updates if needed
+    def _render_update_notice(self) -> None:
         update_notice = self.query_one("#update-notice", Static)
         update_notice.display = bool(self.update_notice_text)
         update_notice.update(self.update_notice_text)

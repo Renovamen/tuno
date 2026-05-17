@@ -11,40 +11,28 @@ class ClientActionTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_dispatch_command_routes_by_command_spec(self) -> None:
         """Route each parsed command to its runtime callback or protocol send."""
-        # Capture every callback effect so the command routing table can be asserted
-        # without constructing a full Textual app.
-        connected_servers: list[str] = []
-        joined_rooms: list[str] = []
-        created_rooms: list[str] = []
-        joined_names: list[str | None] = []
-        sent: list[tuple[str, dict[str, object]]] = []
-        exited: list[bool] = []
+        recorder = CommandDispatchRecorder()
 
-        async def connect(player_name=None, url=None) -> None:
-            joined_names.append(player_name)
+        await self.dispatch_user_commands(recorder)
 
-        async def connect_server(url: str) -> None:
-            connected_servers.append(url)
+        self.assertEqual(recorder.connected_servers, ["ws://example.test"])
+        self.assertEqual(recorder.created_rooms, ["main"])
+        self.assertEqual(recorder.joined_rooms, ["main"])
+        self.assertEqual(recorder.joined_names, ["alice"])
+        self.assertEqual(
+            recorder.sent,
+            [
+                ("start", {}),
+                ("draw_card", {}),
+                ("pass_turn", {}),
+                ("set_uno", {"armed": True}),
+                ("exit_room", {}),
+            ],
+        )
+        self.assertEqual(recorder.exited, [True])
 
-        async def join_room(name: str) -> None:
-            joined_rooms.append(name)
-
-        async def create_room(name: str) -> None:
-            created_rooms.append(name)
-
-        async def send(kind: str, **payload) -> None:
-            sent.append((kind, payload))
-
-        async def exit_client() -> None:
-            exited.append(True)
-
-        def set_feedback(message: str) -> None:
-            raise AssertionError(message)
-
-        def render_state() -> None:
-            return None
-
-        # Step 1: Dispatch the command shapes that the client exposes to users.
+    async def dispatch_user_commands(self, recorder: "CommandDispatchRecorder") -> None:
+        """Dispatch command shapes that users can submit through the command input."""
         for raw in (
             "/server ws://example.test",
             "/create main",
@@ -62,34 +50,15 @@ class ClientActionTests(unittest.IsolatedAsyncioTestCase):
                 preferred_name="default",
                 say_uno_next=False,
                 state={},
-                connect=connect,
-                connect_server=connect_server,
-                join_room=join_room,
-                create_room=create_room,
-                send=send,
-                exit_client=exit_client,
-                set_command_feedback=set_feedback,
-                render_state=render_state,
+                connect=recorder.connect,
+                connect_server=recorder.connect_server,
+                join_room=recorder.join_room,
+                create_room=recorder.create_room,
+                send=recorder.send,
+                exit_client=recorder.exit_client,
+                set_command_feedback=recorder.set_feedback,
+                render_state=recorder.render_state,
             )
-
-        # Step 2: Server, room, player, and exit commands should hit dedicated callbacks.
-        self.assertEqual(connected_servers, ["ws://example.test"])
-        self.assertEqual(created_rooms, ["main"])
-        self.assertEqual(joined_rooms, ["main"])
-        self.assertEqual(joined_names, ["alice"])
-
-        # Step 3: Gameplay commands should become protocol action messages.
-        self.assertEqual(
-            sent,
-            [
-                ("start", {}),
-                ("draw_card", {}),
-                ("pass_turn", {}),
-                ("set_uno", {"armed": True}),
-                ("exit_room", {}),
-            ],
-        )
-        self.assertEqual(exited, [True])
 
     async def test_play_card_by_number_sends_valid_play_request(self) -> None:
         """Convert a locally legal numbered card selection into a play_card send."""
@@ -158,3 +127,39 @@ class ClientActionTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(result)
         self.assertEqual(sent, [])
         self.assertIn("does not match current color", feedback[-1])
+
+
+class CommandDispatchRecorder:
+    """Capture callback effects without constructing a full Textual app."""
+
+    def __init__(self) -> None:
+        self.connected_servers: list[str] = []
+        self.joined_rooms: list[str] = []
+        self.created_rooms: list[str] = []
+        self.joined_names: list[str | None] = []
+        self.sent: list[tuple[str, dict[str, object]]] = []
+        self.exited: list[bool] = []
+
+    async def connect(self, player_name=None, url=None) -> None:
+        self.joined_names.append(player_name)
+
+    async def connect_server(self, url: str) -> None:
+        self.connected_servers.append(url)
+
+    async def join_room(self, name: str) -> None:
+        self.joined_rooms.append(name)
+
+    async def create_room(self, name: str) -> None:
+        self.created_rooms.append(name)
+
+    async def send(self, kind: str, **payload) -> None:
+        self.sent.append((kind, payload))
+
+    async def exit_client(self) -> None:
+        self.exited.append(True)
+
+    def set_feedback(self, message: str) -> None:
+        raise AssertionError(message)
+
+    def render_state(self) -> None:
+        return None

@@ -14,77 +14,54 @@ class ClientCommandControllerTests(ClientAppHarness):
     """Cover command dispatch side effects without asserting rendered UI."""
 
     async def test_invalid_command_and_illegal_play_set_feedback(self) -> None:
-        """Route syntax and play-validation failures into command feedback state.
-
-        Flow:
-        1. Submit an invalid slash command before connecting.
-        2. Verify parser feedback is stored on the command controller.
-        3. Connect to the server, create a room, join as host, add a guest, and start a round.
-        4. Seed a room-scoped hand where one numbered card is illegal and one wild card lacks a color.
-        5. Verify both local validation failures produce clear feedback.
-        """
+        """Route syntax and play-validation failures into command feedback state."""
         app = TunoApp()
         guest = ClientAPI(self.url)
         async with app.run_test() as pilot:
-            # Step 1: Invalid command before connect should surface parser feedback.
             await app.execute_command("/play")
             feedback_text = app.command_controller.command_feedback_message or ""
-
-            # Step 2: Parser feedback should stay on the command controller.
             self.assertIn("Command error:", feedback_text)
             self.assertIn("Try /help", feedback_text)
 
-            # Step 3: Open the server connection, create/select a room, and join as host.
-            await app.execute_command(f"/server {self.url}")
-            await self.wait_until(lambda: app.api is not None, pilot, message="server connect")
-            await app.execute_command("/create main")
-            await self.wait_until(
-                lambda: app.selected_room_name == "main", pilot, message="room create"
-            )
-            await app.execute_command("/join alice")
-            await self.wait_until(lambda: app.player_id is not None, pilot, message="host join")
+            await self.connect_and_seed_illegal_play(app, guest, pilot)
 
-            # Step 3: Add a second player so the room can start a legal round.
-            await self.connect_guest(guest, pilot)
-
-            await app.execute_command("/start")
-            await self.wait_until(
-                lambda: app.state.get("started") is True, pilot, message="game start"
-            )
-
-            # Step 4: Seed the active room with local-validation failure cases.
-            game = self.session.rooms["main"].state
-            game.players[0].hand = [
-                Card("blue", "7"),
-                Card(None, "wild"),
-            ]
-            game.players[1].hand = [
-                Card("yellow", "2"),
-                Card("green", "4"),
-            ]
-            game._deck.discard_pile = [Card("red", "1")]
-            game.current_color = "red"
-            game.current_player_index = 0
-            game.status_message = "Illegal play scenario ready."
-            await self.session.rooms["main"]._broadcast_state()
-            await self.wait_until(
-                lambda: app.state.get("status_message") == "Illegal play scenario ready.",
-                pilot,
-                message="illegal play sync",
-            )
-
-            # Step 5: Reject a numbered card that does not match color or rank.
             await app.execute_command("/play 1")
             feedback_text = app.command_controller.command_feedback_message or ""
             self.assertIn("Illegal play:", feedback_text)
             self.assertIn("does not match current color", feedback_text)
 
-            # Step 5: Reject a wild card play that omits the required chosen color.
             await app.execute_command("/play 2")
             feedback_text = app.command_controller.command_feedback_message or ""
             self.assertIn("wild cards require a color", feedback_text.lower())
 
         await self.close_clients(app, guest)
+
+    async def connect_and_seed_illegal_play(self, app: TunoApp, guest: ClientAPI, pilot) -> None:
+        """Start a room and seed local-validation failure cases."""
+        await app.execute_command(f"/server {self.url}")
+        await self.wait_until(lambda: app.api is not None, pilot, message="server connect")
+        await app.execute_command("/create main")
+        await self.wait_until(lambda: app.selected_room_name == "main", pilot, message="room")
+        await app.execute_command("/join alice")
+        await self.wait_until(lambda: app.player_id is not None, pilot, message="host join")
+        await self.connect_guest(guest, pilot)
+
+        await app.execute_command("/start")
+        await self.wait_until(lambda: app.state.get("started") is True, pilot, message="game start")
+
+        game = self.session.rooms["main"].state
+        game.players[0].hand = [Card("blue", "7"), Card(None, "wild")]
+        game.players[1].hand = [Card("yellow", "2"), Card("green", "4")]
+        game._deck.discard_pile = [Card("red", "1")]
+        game.current_color = "red"
+        game.current_player_index = 0
+        game.status_message = "Illegal play scenario ready."
+        await self.session.rooms["main"]._broadcast_state()
+        await self.wait_until(
+            lambda: app.state.get("status_message") == "Illegal play scenario ready.",
+            pilot,
+            message="illegal play sync",
+        )
 
     async def test_exit_command_leaves_cleanly_and_closes_the_app(self) -> None:
         """Ensure `/exit` performs the full shutdown path for both client and server state.
