@@ -118,7 +118,6 @@ class ClientRuntime:
             self._set_feedback("Command error: /server requires a ws:// or wss:// URL.")
             return
 
-        self.server_history = remember_server(target_url)
         next_api = self._api_factory(target_url)
 
         try:
@@ -127,6 +126,7 @@ class ClientRuntime:
             self._set_feedback(f"Server connect failed: {exc}")
             return
 
+        self.server_history = remember_server(target_url)
         await self.close_current_server()
         self.selected_server_url = target_url
         self.api = next_api

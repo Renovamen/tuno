@@ -117,7 +117,7 @@ class ClientCommandControllerTests(ClientAppHarness):
         Flow:
         1. Connect to a reachable server without selecting a room.
         2. Attempt to switch to an unreachable websocket URL.
-        3. Verify the original connection remains active and the failed URL is remembered.
+        3. Verify the original connection remains active and the failed URL is not remembered.
         """
         app = TunoApp()
         async with app.run_test() as pilot:
@@ -133,9 +133,10 @@ class ClientCommandControllerTests(ClientAppHarness):
             await app.execute_command("/server ws://127.0.0.1:1")
             await pilot.pause(0.1)
 
-            # Step 3: Failed switching must not discard the working connection.
+            # Step 3: Failed switching must not discard the working connection,
+            # and the failed URL must not be added to history.
             self.assertIsNotNone(app.api)
             self.assertEqual(app.api.url, self.url)
-            self.assertIn("ws://127.0.0.1:1", app.server_history)
+            self.assertNotIn("ws://127.0.0.1:1", app.server_history)
 
         await self.close_clients(app, ClientAPI(self.url))
