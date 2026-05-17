@@ -21,6 +21,7 @@ class ClientCommandParsingTests(unittest.TestCase):
         self.assertEqual(parse_command("/draw").name, "draw")
         self.assertEqual(parse_command("/pass").name, "pass")
         self.assertEqual(parse_command("/uno").name, "uno")
+        self.assertEqual(parse_command("/exit_game").name, "exit_game")
         self.assertEqual(parse_command("/exit_room").name, "exit_room")
         self.assertEqual(parse_command("/help").name, "help")
         self.assertEqual(parse_command("/exit_server").name, "exit_server")
@@ -125,7 +126,16 @@ class AvailableCommandsTests(unittest.TestCase):
         )
         self.assertEqual(
             cmds,
-            ["/play <n> [color]", "/draw", "/uno", "/help", "/exit_room", "/exit_server", "/exit"],
+            [
+                "/play <n> [color]",
+                "/draw",
+                "/uno",
+                "/help",
+                "/exit_game",
+                "/exit_room",
+                "/exit_server",
+                "/exit",
+            ],
         )
 
     def test_game_waiting_help(self) -> None:
@@ -137,7 +147,10 @@ class AvailableCommandsTests(unittest.TestCase):
             joined=True,
             uno_armed=False,
         )
-        self.assertEqual(cmds, ["/help", "/exit_room", "/exit_server", "/exit"])
+        self.assertEqual(
+            cmds,
+            ["/help", "/exit_game", "/exit_room", "/exit_server", "/exit"],
+        )
 
     def test_finished_help(self) -> None:
         """Expose `/start` again to the host after a finished round."""

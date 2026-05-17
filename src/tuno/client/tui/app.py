@@ -295,6 +295,10 @@ class TunoApp(App):
         """Delegate server disconnect (keeping the app alive) to the runtime service."""
         await self.runtime.exit_server()
 
+    async def exit_game(self) -> None:
+        """Delegate leaving the active round (while keeping the room) to the runtime service."""
+        await self.runtime.exit_game()
+
     async def send(self, kind: str, **payload: Any) -> None:
         """Delegate one outbound server action to the runtime service."""
         await self.runtime.send(kind, **payload)

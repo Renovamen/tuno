@@ -17,6 +17,7 @@ RoomFn = Callable[[str], Awaitable[None]]
 SendFn = Callable[[str], Awaitable[None]]
 ExitFn = Callable[[], Awaitable[None]]
 ExitServerFn = Callable[[], Awaitable[None]]
+ExitGameFn = Callable[[], Awaitable[None]]
 FeedbackFn = Callable[[str], None]
 RenderFn = Callable[[], None]
 
@@ -33,6 +34,7 @@ class CommandDispatchContext:
     send: Callable[..., Awaitable[None]]
     exit_client: ExitFn
     exit_server: ExitServerFn
+    exit_game: ExitGameFn
     set_command_feedback: FeedbackFn
     render_state: RenderFn
 
@@ -53,6 +55,7 @@ async def dispatch_command(
     send: Callable[..., Awaitable[None]],
     exit_client: ExitFn,
     exit_server: ExitServerFn,
+    exit_game: ExitGameFn,
     set_command_feedback: FeedbackFn,
     render_state: RenderFn,
 ) -> bool:
@@ -70,6 +73,7 @@ async def dispatch_command(
         send=send,
         exit_client=exit_client,
         exit_server=exit_server,
+        exit_game=exit_game,
         set_command_feedback=set_command_feedback,
         render_state=render_state,
     )
@@ -83,6 +87,7 @@ async def dispatch_command(
         command_defs.DRAW_COMMAND: _dispatch_draw,
         command_defs.PASS_COMMAND: _dispatch_pass,
         command_defs.UNO_COMMAND: _dispatch_uno,
+        command_defs.EXIT_GAME_COMMAND: _dispatch_exit_game,
         command_defs.EXIT_ROOM_COMMAND: _dispatch_exit_room,
         command_defs.HELP_COMMAND: _dispatch_help,
         command_defs.EXIT_SERVER_COMMAND: _dispatch_exit_server,
@@ -150,6 +155,11 @@ async def _dispatch_uno(command: ParsedCommand, context: CommandDispatchContext)
     if not context.say_uno_next:
         await context.send("set_uno", armed=True)
     return True
+
+
+async def _dispatch_exit_game(command: ParsedCommand, context: CommandDispatchContext) -> bool:
+    await context.exit_game()
+    return False
 
 
 async def _dispatch_exit_room(command: ParsedCommand, context: CommandDispatchContext) -> bool:

@@ -194,6 +194,31 @@ class ClientRuntime:
         await self.close_current_server()
         self._set_feedback("Disconnected from server. Use /server <server> to connect again.")
 
+    async def exit_game(self) -> None:
+        """Leave the active round while keeping the room connection for spectating."""
+        if self.api is None:
+            self._set_feedback("Command error: Not connected to a server.")
+            return
+        if self.selected_room_name is None:
+            self._set_feedback("Command error: Connect to a room first with /connect <room>.")
+            return
+        if self.player_id is None:
+            self._set_feedback("Command error: Join the game first with /join <player_name>.")
+            return
+        if not self.state.get("started") or self.state.get("finished"):
+            self._set_feedback("Command error: /exit_game is only allowed during an active game.")
+            return
+
+        try:
+            await self.api.send("leave")
+        except Exception as exc:  # pragma: no cover
+            self._set_feedback(f"Error: Send failed: {exc}")
+            return
+
+        self.player_id = None
+        self.say_uno_next = False
+        self._set_feedback("Left the game. You are now spectating this room.")
+
     async def exit_client(self) -> None:
         """Exit the UI immediately and finish websocket cleanup in the background."""
         self._exiting = True

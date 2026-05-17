@@ -70,6 +70,7 @@ COMMAND_SPECS_BY_NAME = {
         CommandSpec("draw", "/draw"),
         CommandSpec("pass", "/pass"),
         CommandSpec("uno", "/uno"),
+        CommandSpec("exit_game", "/exit_game"),
         CommandSpec("exit_room", "/exit_room"),
         CommandSpec("help", "/help"),
         CommandSpec("exit_server", "/exit_server"),
@@ -88,6 +89,7 @@ PLAY_COMMAND = COMMAND_SPECS_BY_NAME["play"]
 DRAW_COMMAND = COMMAND_SPECS_BY_NAME["draw"]
 PASS_COMMAND = COMMAND_SPECS_BY_NAME["pass"]
 UNO_COMMAND = COMMAND_SPECS_BY_NAME["uno"]
+EXIT_GAME_COMMAND = COMMAND_SPECS_BY_NAME["exit_game"]
 EXIT_ROOM_COMMAND = COMMAND_SPECS_BY_NAME["exit_room"]
 HELP_COMMAND = COMMAND_SPECS_BY_NAME["help"]
 EXIT_SERVER_COMMAND = COMMAND_SPECS_BY_NAME["exit_server"]
@@ -107,6 +109,13 @@ ROOM_SELECTION_COMMANDS = (
 )
 ROOM_EXIT_COMMANDS = (
     HELP_COMMAND.template,
+    EXIT_ROOM_COMMAND.template,
+    EXIT_SERVER_COMMAND.template,
+    EXIT_COMMAND.template,
+)
+IN_GAME_EXIT_COMMANDS = (
+    HELP_COMMAND.template,
+    EXIT_GAME_COMMAND.template,
     EXIT_ROOM_COMMAND.template,
     EXIT_SERVER_COMMAND.template,
     EXIT_COMMAND.template,
@@ -183,7 +192,7 @@ def derive_available_commands(
     if not state.get("started"):
         return _with_optional_start(state)
     if not state.get("your_turn"):
-        return list(ROOM_EXIT_COMMANDS)
+        return list(IN_GAME_EXIT_COMMANDS)
 
     commands: List[str] = [PLAYER_TURN_COMMANDS[0]]
 
@@ -194,7 +203,7 @@ def derive_available_commands(
     if state.get("uno_hint") or uno_armed:
         commands.append(PLAYER_TURN_COMMANDS[3])
 
-    commands.extend(ROOM_EXIT_COMMANDS)
+    commands.extend(IN_GAME_EXIT_COMMANDS)
 
     return commands
 
@@ -247,6 +256,7 @@ class CommandHost(Protocol):
     async def send(self, kind: str, **payload: Any) -> None: ...
     async def exit_client(self) -> None: ...
     async def exit_server(self) -> None: ...
+    async def exit_game(self) -> None: ...
     def render_state(self) -> None: ...
     def query_one(self, selector: str, expect_type: type | None = None): ...
 
@@ -303,6 +313,7 @@ class CommandController:
                 send=self.host.send,
                 exit_client=self.host.exit_client,
                 exit_server=self.host.exit_server,
+                exit_game=self.host.exit_game,
                 set_command_feedback=self.set_feedback,
                 render_state=self.host.render_state,
             )

@@ -29,6 +29,7 @@ class ClientActionTests(unittest.IsolatedAsyncioTestCase):
                 ("exit_room", {}),
             ],
         )
+        self.assertEqual(recorder.exited_games, [True])
         self.assertEqual(recorder.exited_servers, [True])
         self.assertEqual(recorder.exited, [True])
 
@@ -43,6 +44,7 @@ class ClientActionTests(unittest.IsolatedAsyncioTestCase):
             "/draw",
             "/pass",
             "/uno",
+            "/exit_game",
             "/exit_room",
             "/exit_server",
             "/exit",
@@ -59,6 +61,7 @@ class ClientActionTests(unittest.IsolatedAsyncioTestCase):
                 send=recorder.send,
                 exit_client=recorder.exit_client,
                 exit_server=recorder.exit_server,
+                exit_game=recorder.exit_game,
                 set_command_feedback=recorder.set_feedback,
                 render_state=recorder.render_state,
             )
@@ -143,6 +146,7 @@ class CommandDispatchRecorder:
         self.sent: list[tuple[str, dict[str, object]]] = []
         self.exited: list[bool] = []
         self.exited_servers: list[bool] = []
+        self.exited_games: list[bool] = []
 
     async def connect(self, player_name=None, url=None) -> None:
         self.joined_names.append(player_name)
@@ -164,6 +168,9 @@ class CommandDispatchRecorder:
 
     async def exit_server(self) -> None:
         self.exited_servers.append(True)
+
+    async def exit_game(self) -> None:
+        self.exited_games.append(True)
 
     def set_feedback(self, message: str) -> None:
         raise AssertionError(message)
