@@ -29,6 +29,7 @@ class ClientActionTests(unittest.IsolatedAsyncioTestCase):
                 ("exit_room", {}),
             ],
         )
+        self.assertEqual(recorder.exited_servers, [True])
         self.assertEqual(recorder.exited, [True])
 
     async def dispatch_user_commands(self, recorder: "CommandDispatchRecorder") -> None:
@@ -43,6 +44,7 @@ class ClientActionTests(unittest.IsolatedAsyncioTestCase):
             "/pass",
             "/uno",
             "/exit_room",
+            "/exit_server",
             "/exit",
         ):
             await dispatch_command(
@@ -56,6 +58,7 @@ class ClientActionTests(unittest.IsolatedAsyncioTestCase):
                 create_room=recorder.create_room,
                 send=recorder.send,
                 exit_client=recorder.exit_client,
+                exit_server=recorder.exit_server,
                 set_command_feedback=recorder.set_feedback,
                 render_state=recorder.render_state,
             )
@@ -139,6 +142,7 @@ class CommandDispatchRecorder:
         self.joined_names: list[str | None] = []
         self.sent: list[tuple[str, dict[str, object]]] = []
         self.exited: list[bool] = []
+        self.exited_servers: list[bool] = []
 
     async def connect(self, player_name=None, url=None) -> None:
         self.joined_names.append(player_name)
@@ -157,6 +161,9 @@ class CommandDispatchRecorder:
 
     async def exit_client(self) -> None:
         self.exited.append(True)
+
+    async def exit_server(self) -> None:
+        self.exited_servers.append(True)
 
     def set_feedback(self, message: str) -> None:
         raise AssertionError(message)

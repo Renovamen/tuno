@@ -23,6 +23,7 @@ class ClientCommandParsingTests(unittest.TestCase):
         self.assertEqual(parse_command("/uno").name, "uno")
         self.assertEqual(parse_command("/exit_room").name, "exit_room")
         self.assertEqual(parse_command("/help").name, "help")
+        self.assertEqual(parse_command("/exit_server").name, "exit_server")
         self.assertEqual(parse_command("/exit").name, "exit")
 
     def test_rejects_malformed_commands(self) -> None:
@@ -68,7 +69,9 @@ class AvailableCommandsTests(unittest.TestCase):
             joined=False,
             uno_armed=False,
         )
-        self.assertEqual(cmds, ["/connect <room>", "/create <room>", "/help", "/exit"])
+        self.assertEqual(
+            cmds, ["/connect <room>", "/create <room>", "/help", "/exit_server", "/exit"]
+        )
 
     def test_selected_room_before_join_help(self) -> None:
         """Offer player join and room exit commands after a room is selected."""
@@ -79,7 +82,9 @@ class AvailableCommandsTests(unittest.TestCase):
             joined=False,
             uno_armed=False,
         )
-        self.assertEqual(cmds, ["/join <player_name>", "/help", "/exit_room", "/exit"])
+        self.assertEqual(
+            cmds, ["/join <player_name>", "/help", "/exit_room", "/exit_server", "/exit"]
+        )
 
     def test_lobby_host_help(self) -> None:
         """Expose `/start` only when the joined player can start the lobby."""
@@ -90,7 +95,7 @@ class AvailableCommandsTests(unittest.TestCase):
             joined=True,
             uno_armed=False,
         )
-        self.assertEqual(cmds, ["/start", "/help", "/exit_room", "/exit"])
+        self.assertEqual(cmds, ["/start", "/help", "/exit_room", "/exit_server", "/exit"])
 
     def test_lobby_non_host_help(self) -> None:
         """Hide `/start` from lobby players who are not allowed to start."""
@@ -101,7 +106,7 @@ class AvailableCommandsTests(unittest.TestCase):
             joined=True,
             uno_armed=False,
         )
-        self.assertEqual(cmds, ["/help", "/exit_room", "/exit"])
+        self.assertEqual(cmds, ["/help", "/exit_room", "/exit_server", "/exit"])
 
     def test_game_your_turn_help(self) -> None:
         """Show only the legal turn actions for the current player."""
@@ -119,7 +124,8 @@ class AvailableCommandsTests(unittest.TestCase):
             uno_armed=False,
         )
         self.assertEqual(
-            cmds, ["/play <n> [color]", "/draw", "/uno", "/help", "/exit_room", "/exit"]
+            cmds,
+            ["/play <n> [color]", "/draw", "/uno", "/help", "/exit_room", "/exit_server", "/exit"],
         )
 
     def test_game_waiting_help(self) -> None:
@@ -131,7 +137,7 @@ class AvailableCommandsTests(unittest.TestCase):
             joined=True,
             uno_armed=False,
         )
-        self.assertEqual(cmds, ["/help", "/exit_room", "/exit"])
+        self.assertEqual(cmds, ["/help", "/exit_room", "/exit_server", "/exit"])
 
     def test_finished_help(self) -> None:
         """Expose `/start` again to the host after a finished round."""
@@ -142,7 +148,7 @@ class AvailableCommandsTests(unittest.TestCase):
             joined=True,
             uno_armed=False,
         )
-        self.assertEqual(cmds, ["/start", "/help", "/exit_room", "/exit"])
+        self.assertEqual(cmds, ["/start", "/help", "/exit_room", "/exit_server", "/exit"])
 
     def test_finished_non_host_hides_restart(self) -> None:
         """Do not expose `/start` to non-host players after a finished round."""
@@ -153,4 +159,4 @@ class AvailableCommandsTests(unittest.TestCase):
             joined=True,
             uno_armed=False,
         )
-        self.assertEqual(cmds, ["/help", "/exit_room", "/exit"])
+        self.assertEqual(cmds, ["/help", "/exit_room", "/exit_server", "/exit"])

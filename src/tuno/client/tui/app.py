@@ -291,6 +291,10 @@ class TunoApp(App):
         """Delegate shutdown behavior to the runtime service."""
         await self.runtime.exit_client()
 
+    async def exit_server(self) -> None:
+        """Delegate server disconnect (keeping the app alive) to the runtime service."""
+        await self.runtime.exit_server()
+
     async def send(self, kind: str, **payload: Any) -> None:
         """Delegate one outbound server action to the runtime service."""
         await self.runtime.send(kind, **payload)

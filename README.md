@@ -77,6 +77,7 @@ tuno
 - `/join <player_name>`: Join the selected room as a player.
 - `/start`: The host starts the round.
 - `/exit_room`: Leave the room and return to the room list.
+- `/exit_server`: Disconnect from the current server (and leave the room).
 - `/exit`: Quit Tuno.
 
 **Gameplay:**

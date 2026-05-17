@@ -178,6 +178,22 @@ class ClientRuntime:
         self.state = {}
         self.say_uno_next = False
 
+    async def exit_server(self) -> None:
+        """Drop the active server connection without exiting the app."""
+        if self.api is None:
+            self._set_feedback("Command error: Not connected to a server.")
+            return
+
+        self._set_feedback("Disconnecting from server...")
+
+        # Send "leave" first so the server can release the player slot cleanly.
+        if self.player_id is not None:
+            with contextlib.suppress(Exception):
+                await self.api.send("leave")
+
+        await self.close_current_server()
+        self._set_feedback("Disconnected from server. Use /server <server> to connect again.")
+
     async def exit_client(self) -> None:
         """Exit the UI immediately and finish websocket cleanup in the background."""
         self._exiting = True

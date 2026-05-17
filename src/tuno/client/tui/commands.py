@@ -72,6 +72,7 @@ COMMAND_SPECS_BY_NAME = {
         CommandSpec("uno", "/uno"),
         CommandSpec("exit_room", "/exit_room"),
         CommandSpec("help", "/help"),
+        CommandSpec("exit_server", "/exit_server"),
         CommandSpec("exit", "/exit"),
     )
 }
@@ -89,6 +90,7 @@ PASS_COMMAND = COMMAND_SPECS_BY_NAME["pass"]
 UNO_COMMAND = COMMAND_SPECS_BY_NAME["uno"]
 EXIT_ROOM_COMMAND = COMMAND_SPECS_BY_NAME["exit_room"]
 HELP_COMMAND = COMMAND_SPECS_BY_NAME["help"]
+EXIT_SERVER_COMMAND = COMMAND_SPECS_BY_NAME["exit_server"]
 EXIT_COMMAND = COMMAND_SPECS_BY_NAME["exit"]
 
 SERVER_SELECTION_COMMANDS = (
@@ -100,11 +102,13 @@ ROOM_SELECTION_COMMANDS = (
     CONNECT_COMMAND.template,
     CREATE_ROOM_COMMAND.template,
     HELP_COMMAND.template,
+    EXIT_SERVER_COMMAND.template,
     EXIT_COMMAND.template,
 )
 ROOM_EXIT_COMMANDS = (
     HELP_COMMAND.template,
     EXIT_ROOM_COMMAND.template,
+    EXIT_SERVER_COMMAND.template,
     EXIT_COMMAND.template,
 )
 PLAYER_JOIN_COMMANDS = (JOIN_PLAYER_COMMAND.template, *ROOM_EXIT_COMMANDS)
@@ -242,6 +246,7 @@ class CommandHost(Protocol):
     ) -> None: ...
     async def send(self, kind: str, **payload: Any) -> None: ...
     async def exit_client(self) -> None: ...
+    async def exit_server(self) -> None: ...
     def render_state(self) -> None: ...
     def query_one(self, selector: str, expect_type: type | None = None): ...
 
@@ -275,9 +280,11 @@ class CommandController:
     async def dispatch(self, command: ParsedCommand) -> None:
         """Execute a parsed command while preserving the existing render/update hooks."""
         previous_uno_state = self.host.say_uno_next
-        if command.name not in {HELP_COMMAND.name, EXIT_COMMAND.name} and not (
-            command.name == SERVER_COMMAND.name and not command.args
-        ):
+        if command.name not in {
+            HELP_COMMAND.name,
+            EXIT_COMMAND.name,
+            EXIT_SERVER_COMMAND.name,
+        } and not (command.name == SERVER_COMMAND.name and not command.args):
             self.set_pending_server_response()
 
         if command.name == SERVER_COMMAND.name and not command.args:
@@ -295,6 +302,7 @@ class CommandController:
                 create_room=self.host.create_room,
                 send=self.host.send,
                 exit_client=self.host.exit_client,
+                exit_server=self.host.exit_server,
                 set_command_feedback=self.set_feedback,
                 render_state=self.host.render_state,
             )
