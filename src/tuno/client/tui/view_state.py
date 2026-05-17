@@ -18,6 +18,7 @@ from tuno.client.tui.rendering import (
     render_rooms_title,
     render_top_card_body,
 )
+from tuno.core.snapshot import GameSnapshot
 
 
 @dataclass(frozen=True)
@@ -43,7 +44,7 @@ def build_view_state(
     *,
     app_version: str,
     server_target: str,
-    state: Dict[str, Any],
+    state: GameSnapshot,
     rooms: Sequence[Dict[str, Any]],
     connected: bool,
     room_selected: bool,
@@ -65,14 +66,14 @@ def build_view_state(
     return ClientViewState(
         border_title=f"Tuno v{app_version} ({server_target})",
         local_status_body=render_local_status_body(state, room_name=selected_room_name),
-        hand_visible=bool(state.get("started") and not state.get("finished")),
+        hand_visible=bool(state.started and not state.finished),
         hand_body=render_hand_body(state, say_uno_next=say_uno_next),
         players_title=render_rooms_title(rooms)
         if room_lobby_visible
         else render_players_title(state),
         players_body=render_rooms_body(rooms) if room_lobby_visible else render_players_body(state),
         recent_activity_visible=not room_lobby_visible,
-        top_card_visible=bool(state.get("started") and state.get("top_card")),
+        top_card_visible=bool(state.started and state.top_card),
         top_card_body=render_top_card_body(state),
         recent_activity_body=render_recent_activity_body(state),
         command_meta_visible=bool(command_feedback_message or player_id is None),

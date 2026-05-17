@@ -48,7 +48,7 @@ class ClientAppFlowTests(ClientAppHarness):
 
         await self.connect_guest(guest, pilot)
         await app.execute_command("/start")
-        await self.wait_until(lambda: app.state.get("started") is True, pilot, message="game start")
+        await self.wait_until(lambda: app.state.started is True, pilot, message="game start")
         self.assertTrue(self.session.rooms["main"].state.started)
 
     async def verify_normal_play(self, app: TunoApp, game, session, pilot) -> None:
@@ -64,20 +64,20 @@ class ClientAppFlowTests(ClientAppHarness):
         game.status_message = "Play scenario ready."
         await session._broadcast_state()
         await self.wait_until(
-            lambda: app.state.get("status_message") == "Play scenario ready.",
+            lambda: app.state.status_message == "Play scenario ready.",
             pilot,
             message="play scenario sync",
         )
 
         await app.execute_command("/play 1")
         await self.wait_until(
-            lambda: "played" in app.state.get("status_message", ""),
+            lambda: "played" in (app.state.status_message or ""),
             pilot,
             message="play resolution",
         )
-        self.assertEqual(app.state["players"][0]["card_count"], 2)
-        self.assertFalse(app.state["your_turn"])
-        self.assertEqual(app.state["top_card"]["short"], "R:5")
+        self.assertEqual(app.state.players[0]["card_count"], 2)
+        self.assertFalse(app.state.your_turn)
+        self.assertEqual(app.state.top_card["short"], "R:5")
 
     async def verify_wild_play(self, app: TunoApp, game, session, pilot) -> None:
         """Seed and verify a wild-card play with the chosen color."""
@@ -92,17 +92,17 @@ class ClientAppFlowTests(ClientAppHarness):
         game.status_message = "Wild scenario ready."
         await session._broadcast_state()
         await self.wait_until(
-            lambda: app.state.get("status_message") == "Wild scenario ready.",
+            lambda: app.state.status_message == "Wild scenario ready.",
             pilot,
             message="wild scenario sync",
         )
 
         await app.execute_command("/play 1 red")
         await self.wait_until(
-            lambda: app.state.get("current_color") == "red", pilot, message="wild resolution"
+            lambda: app.state.current_color == "red", pilot, message="wild resolution"
         )
-        self.assertIn("played", app.state.get("status_message", ""))
-        self.assertEqual(app.state["top_card"]["rank"], "wild")
+        self.assertIn("played", app.state.status_message or "")
+        self.assertEqual(app.state.top_card["rank"], "wild")
 
     async def verify_uno_draw_and_pass(self, app: TunoApp, game, session, pilot) -> None:
         """Seed UNO and draw/pass states, then verify the client receives each transition."""
@@ -117,14 +117,14 @@ class ClientAppFlowTests(ClientAppHarness):
         game.status_message = "UNO scenario ready."
         await session._broadcast_state()
         await self.wait_until(
-            lambda: app.state.get("status_message") == "UNO scenario ready.",
+            lambda: app.state.status_message == "UNO scenario ready.",
             pilot,
             message="uno scenario sync",
         )
 
         await app.execute_command("/uno")
         await self.wait_until(
-            lambda: "armed UNO" in " ".join(app.state.get("recent_events", [])),
+            lambda: "armed UNO" in " ".join(app.state.recent_events or []),
             pilot,
             message="uno armed recent activity",
         )
@@ -132,10 +132,10 @@ class ClientAppFlowTests(ClientAppHarness):
         self.assertTrue(app.say_uno_next)
 
         await app.execute_command("/draw")
-        await self.wait_until(lambda: app.state.get("can_pass") is True, pilot, message="draw")
-        self.assertEqual(app.state["players"][0]["card_count"], 3)
+        await self.wait_until(lambda: app.state.can_pass is True, pilot, message="draw")
+        self.assertEqual(app.state.players[0]["card_count"], 3)
         await app.execute_command("/pass")
         await self.wait_until(
-            lambda: app.state.get("your_turn") is False, pilot, message="pass resolution"
+            lambda: app.state.your_turn is False, pilot, message="pass resolution"
         )
-        self.assertIn("passed", app.state.get("status_message", ""))
+        self.assertIn("passed", app.state.status_message or "")

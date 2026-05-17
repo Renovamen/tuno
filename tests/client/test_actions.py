@@ -4,6 +4,7 @@ import unittest
 
 from tuno.client.actions import dispatch_command, play_card_by_number
 from tuno.client.tui.commands import parse_command
+from tuno.core.snapshot import GameSnapshot
 
 
 class ClientActionTests(unittest.IsolatedAsyncioTestCase):
@@ -53,7 +54,7 @@ class ClientActionTests(unittest.IsolatedAsyncioTestCase):
                 parse_command(raw),
                 preferred_name="default",
                 say_uno_next=False,
-                state={},
+                state=GameSnapshot(),
                 connect=recorder.connect,
                 connect_server=recorder.connect_server,
                 join_room=recorder.join_room,
@@ -76,14 +77,14 @@ class ClientActionTests(unittest.IsolatedAsyncioTestCase):
         # Step 1: Play hand slot 1 when it matches the discard rank.
         result = await play_card_by_number(
             1,
-            state={
-                "current_color": "red",
-                "top_card": {"rank": "5", "short": "R:5"},
-                "your_player_id": "p1",
-                "players": [
+            state=GameSnapshot(
+                current_color="red",
+                top_card={"rank": "5", "short": "R:5"},
+                your_player_id="p1",
+                players=[
                     {"player_id": "p1", "hand": [{"rank": "5", "color": "blue"}]},
                 ],
-            },
+            ),
             chosen_color=None,
             say_uno_next=True,
             send=send,
@@ -114,14 +115,14 @@ class ClientActionTests(unittest.IsolatedAsyncioTestCase):
         # Step 1: Try to play a card that matches neither current color nor rank.
         result = await play_card_by_number(
             1,
-            state={
-                "current_color": "red",
-                "top_card": {"rank": "5", "short": "R:5"},
-                "your_player_id": "p1",
-                "players": [
+            state=GameSnapshot(
+                current_color="red",
+                top_card={"rank": "5", "short": "R:5"},
+                your_player_id="p1",
+                players=[
                     {"player_id": "p1", "hand": [{"rank": "7", "color": "blue"}]},
                 ],
-            },
+            ),
             chosen_color=None,
             say_uno_next=False,
             send=send,

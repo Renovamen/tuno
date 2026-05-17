@@ -244,7 +244,7 @@ class TunoLobby(DurableObject):
             websocket,
             {
                 "type": "state",
-                "state": game.snapshot_for(attachment.get("player_id") or None),
+                "state": game.snapshot_for(attachment.get("player_id") or None).to_dict(),
             },
         )
 

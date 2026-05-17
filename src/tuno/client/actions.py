@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any, Awaitable, Callable, Dict, Optional
 
 from tuno.client.state import my_hand
 from tuno.core.cards import WILD_RANKS
+from tuno.core.snapshot import GameSnapshot
 
 if TYPE_CHECKING:
     from tuno.client.tui.commands import ParsedCommand
@@ -26,7 +27,7 @@ RenderFn = Callable[[], None]
 class CommandDispatchContext:
     preferred_name: str
     say_uno_next: bool
-    state: Dict[str, Any]
+    state: GameSnapshot
     connect: ConnectFn
     connect_server: ConnectServerFn
     join_room: RoomFn
@@ -47,7 +48,7 @@ async def dispatch_command(
     *,
     preferred_name: str,
     say_uno_next: bool,
-    state: Dict[str, Any],
+    state: GameSnapshot,
     connect: ConnectFn,
     connect_server: ConnectServerFn,
     join_room: RoomFn,
@@ -188,7 +189,7 @@ async def _dispatch_noop(command: ParsedCommand, context: CommandDispatchContext
 async def play_card_by_number(
     display_number: int,
     *,
-    state: Dict[str, Any],
+    state: GameSnapshot,
     chosen_color: Optional[str],
     say_uno_next: bool,
     send: Callable[..., Awaitable[None]],
@@ -247,7 +248,7 @@ def _validate_positive_display_number(
 
 
 def _select_displayed_card(
-    display_number: int, state: Dict[str, Any], set_command_feedback: FeedbackFn
+    display_number: int, state: GameSnapshot, set_command_feedback: FeedbackFn
 ) -> tuple[int, Dict[str, Any]] | None:
     player_hand = my_hand(state)
     hand_index = display_number - 1
@@ -262,7 +263,7 @@ def _select_displayed_card(
 
 def _validate_play_choice(
     card: Dict[str, Any],
-    state: Dict[str, Any],
+    state: GameSnapshot,
     chosen_color: Optional[str],
     play_command_token: str,
     set_command_feedback: FeedbackFn,
@@ -270,8 +271,8 @@ def _validate_play_choice(
     if card.get("rank") in WILD_RANKS:
         return _validate_wild_choice(chosen_color, play_command_token, set_command_feedback)
 
-    current_color = state.get("current_color")
-    top_card = state.get("top_card") or {}
+    current_color = state.current_color
+    top_card = state.top_card or {}
     if (
         current_color
         and top_card

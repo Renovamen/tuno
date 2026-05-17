@@ -16,6 +16,7 @@ from tuno.client.tui.commands import CommandController
 from tuno.client.tui.rendering import render_tuno_logo
 from tuno.client.tui.theme import activate_tuno_theme
 from tuno.client.tui.view_state import ClientViewState, build_view_state
+from tuno.core.snapshot import GameSnapshot
 
 
 class TunoApp(App):
@@ -86,11 +87,11 @@ class TunoApp(App):
         self.runtime.rooms = value
 
     @property
-    def state(self) -> Dict[str, Any]:
+    def state(self) -> GameSnapshot:
         return self.runtime.state
 
     @state.setter
-    def state(self, value: Dict[str, Any]) -> None:
+    def state(self, value: GameSnapshot) -> None:
         self.runtime.state = value
 
     @property
@@ -358,7 +359,7 @@ class TunoApp(App):
 
     def _render_logo(self) -> None:
         logo = self.query_one("#tuno-logo", Static)
-        if not self.state.get("started"):
+        if not self.state.started:
             logo.display = True
             logo.update(render_tuno_logo())
         else:

@@ -17,6 +17,7 @@ from tuno.client.updates import (
     fetch_latest_release_version,
     is_newer_version,
 )
+from tuno.core.snapshot import GameSnapshot
 
 FeedbackCallback = Callable[[str], None]
 RenderCallback = Callable[[], None]
@@ -46,7 +47,7 @@ class ClientRuntime:
         self.player_id: Optional[str] = None
         self.selected_room_name: Optional[str] = None
         self.rooms: list[Dict[str, Any]] = []
-        self.state: Dict[str, Any] = {}
+        self.state: GameSnapshot = GameSnapshot()
         self.say_uno_next = False
         self.update_notice_text = ""
 
@@ -176,7 +177,7 @@ class ClientRuntime:
         self.player_id = None
         self.selected_room_name = None
         self.rooms = []
-        self.state = {}
+        self.state = GameSnapshot()
         self.say_uno_next = False
 
     async def exit_server(self) -> None:
@@ -206,7 +207,7 @@ class ClientRuntime:
         if self.player_id is None:
             self._set_feedback(COMMAND_MESSAGES.join_first)
             return
-        if not self.state.get("started") or self.state.get("finished"):
+        if not self.state.started or self.state.finished:
             self._set_feedback(COMMAND_MESSAGES.exit_game_active_only)
             return
 
@@ -232,7 +233,7 @@ class ClientRuntime:
         self.player_id = None
         self.selected_room_name = None
         self.rooms = []
-        self.state = {}
+        self.state = GameSnapshot()
         self.listener_task = None
 
         self.shutdown_task = self._task_factory(
@@ -274,7 +275,7 @@ class ClientRuntime:
             self.selected_room_name = None
             self.rooms = []
             self.api = None
-            self.state = {}
+            self.state = GameSnapshot()
             self._set_feedback(COMMAND_MESSAGES.disconnected_error.format(error=exc))
 
     async def handle_message(self, message: Dict[str, Any]) -> None:
@@ -289,13 +290,13 @@ class ClientRuntime:
             self._clear_pending_server_response()
             self.selected_room_name = str(message.get("name", "")).strip() or None
             self.player_id = None
-            self.state = {}
+            self.state = GameSnapshot()
             self._render_state()
         elif kind in {"room_closed", "room_left"}:
             self._clear_pending_server_response()
             self.selected_room_name = None
             self.player_id = None
-            self.state = {}
+            self.state = GameSnapshot()
             self.say_uno_next = False
             self._render_state()
         elif kind == "room_list":
@@ -311,7 +312,7 @@ class ClientRuntime:
         elif kind in ("info", "state"):
             self._clear_pending_server_response()
             if kind == "state":
-                self.state = message.get("state", {})
+                self.state = GameSnapshot.from_dict(message.get("state", {}))
             self._render_state()
 
     async def send(self, kind: str, **payload: Any) -> None:

@@ -93,7 +93,9 @@ class GameSession:
         for websocket, connection in list(self.connections.items()):
             try:
                 await self._send(
-                    websocket, "state", state=self.state.snapshot_for(connection.player_id)
+                    websocket,
+                    "state",
+                    state=self.state.snapshot_for(connection.player_id).to_dict(),
                 )
             except Exception:
                 stale.append(websocket)

@@ -27,7 +27,7 @@ from tuno.core.events import (
 )
 from tuno.core.game_storage import public_player_payload
 from tuno.core.prng import LcgRandom
-from tuno.core.snapshot import build_snapshot
+from tuno.core.snapshot import GameSnapshot, build_snapshot
 
 MAX_PLAYERS = 5
 MIN_PLAYERS = 2
@@ -416,6 +416,6 @@ class GameState:
         self.status_message = lobby_waiting()
         self.recent_events = [lobby_waiting()]
 
-    def snapshot_for(self, player_id: Optional[str]) -> dict:
+    def snapshot_for(self, player_id: Optional[str]) -> GameSnapshot:
         """Build the client-facing state payload for one connected player."""
         return build_snapshot(self, player_id)

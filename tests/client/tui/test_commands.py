@@ -3,6 +3,7 @@ from __future__ import annotations
 import unittest
 
 from tuno.client.tui.commands import CommandError, derive_available_commands, parse_command
+from tuno.core.snapshot import GameSnapshot
 
 
 class ClientCommandParsingTests(unittest.TestCase):
@@ -53,7 +54,7 @@ class AvailableCommandsTests(unittest.TestCase):
     def test_disconnected_help(self) -> None:
         """Offer connect and help before a player joins a server."""
         cmds = derive_available_commands(
-            {},
+            GameSnapshot(),
             connected=False,
             room_selected=False,
             joined=False,
@@ -64,7 +65,7 @@ class AvailableCommandsTests(unittest.TestCase):
     def test_room_selection_help(self) -> None:
         """Offer room commands after server connect and before room selection."""
         cmds = derive_available_commands(
-            {},
+            GameSnapshot(),
             connected=True,
             room_selected=False,
             joined=False,
@@ -77,7 +78,7 @@ class AvailableCommandsTests(unittest.TestCase):
     def test_selected_room_before_join_help(self) -> None:
         """Offer player join and room exit commands after a room is selected."""
         cmds = derive_available_commands(
-            {},
+            GameSnapshot(),
             connected=True,
             room_selected=True,
             joined=False,
@@ -90,7 +91,7 @@ class AvailableCommandsTests(unittest.TestCase):
     def test_lobby_host_help(self) -> None:
         """Expose `/start` only when the joined player can start the lobby."""
         cmds = derive_available_commands(
-            {"started": False, "can_start": True},
+            GameSnapshot(started=False, can_start=True),
             connected=True,
             room_selected=True,
             joined=True,
@@ -101,7 +102,7 @@ class AvailableCommandsTests(unittest.TestCase):
     def test_lobby_non_host_help(self) -> None:
         """Hide `/start` from lobby players who are not allowed to start."""
         cmds = derive_available_commands(
-            {"started": False, "can_start": False},
+            GameSnapshot(started=False, can_start=False),
             connected=True,
             room_selected=True,
             joined=True,
@@ -112,13 +113,13 @@ class AvailableCommandsTests(unittest.TestCase):
     def test_game_your_turn_help(self) -> None:
         """Show only the legal turn actions for the current player."""
         cmds = derive_available_commands(
-            {
-                "started": True,
-                "your_turn": True,
-                "can_draw": True,
-                "can_pass": False,
-                "uno_hint": True,
-            },
+            GameSnapshot(
+                started=True,
+                your_turn=True,
+                can_draw=True,
+                can_pass=False,
+                uno_hint=True,
+            ),
             connected=True,
             room_selected=True,
             joined=True,
@@ -141,7 +142,7 @@ class AvailableCommandsTests(unittest.TestCase):
     def test_game_waiting_help(self) -> None:
         """Collapse the command list to help while waiting for another player."""
         cmds = derive_available_commands(
-            {"started": True, "your_turn": False},
+            GameSnapshot(started=True, your_turn=False),
             connected=True,
             room_selected=True,
             joined=True,
@@ -155,7 +156,7 @@ class AvailableCommandsTests(unittest.TestCase):
     def test_finished_help(self) -> None:
         """Expose `/start` again to the host after a finished round."""
         cmds = derive_available_commands(
-            {"finished": True, "can_start": True},
+            GameSnapshot(finished=True, can_start=True),
             connected=True,
             room_selected=True,
             joined=True,
@@ -166,7 +167,7 @@ class AvailableCommandsTests(unittest.TestCase):
     def test_finished_non_host_hides_restart(self) -> None:
         """Do not expose `/start` to non-host players after a finished round."""
         cmds = derive_available_commands(
-            {"finished": True, "can_start": False},
+            GameSnapshot(finished=True, can_start=False),
             connected=True,
             room_selected=True,
             joined=True,

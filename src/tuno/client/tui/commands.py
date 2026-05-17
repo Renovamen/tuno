@@ -15,6 +15,7 @@ from tuno.client.tui.completion import (
     sync_completion_state,
 )
 from tuno.client.tui.suggestions import render_suggestions
+from tuno.core.snapshot import GameSnapshot
 
 
 @dataclass(frozen=True)
@@ -210,7 +211,7 @@ def parse_command(raw: str) -> ParsedCommand:
 
 
 def derive_available_commands(
-    state: Dict[str, object],
+    state: GameSnapshot,
     *,
     connected: bool,
     room_selected: bool,
@@ -226,20 +227,20 @@ def derive_available_commands(
     if not joined:
         return list(PLAYER_JOIN_COMMANDS)
 
-    if state.get("finished"):
+    if state.finished:
         return _with_optional_start(state)
-    if not state.get("started"):
+    if not state.started:
         return _with_optional_start(state)
-    if not state.get("your_turn"):
+    if not state.your_turn:
         return list(IN_GAME_EXIT_COMMANDS)
 
     commands: List[str] = [PLAYER_TURN_COMMANDS[0]]
 
-    if state.get("can_draw"):
+    if state.can_draw:
         commands.append(PLAYER_TURN_COMMANDS[1])
-    if state.get("can_pass"):
+    if state.can_pass:
         commands.append(PLAYER_TURN_COMMANDS[2])
-    if state.get("uno_hint") or uno_armed:
+    if state.uno_hint or uno_armed:
         commands.append(PLAYER_TURN_COMMANDS[3])
 
     commands.extend(IN_GAME_EXIT_COMMANDS)
@@ -247,10 +248,10 @@ def derive_available_commands(
     return commands
 
 
-def _with_optional_start(state: Dict[str, object]) -> List[str]:
+def _with_optional_start(state: GameSnapshot) -> List[str]:
     """Return lobby/finished commands, optionally prefixed with host start."""
     commands = list(ROOM_EXIT_COMMANDS)
-    if state.get("can_start"):
+    if state.can_start:
         commands.insert(0, START_COMMAND.template)
     return commands
 
@@ -277,7 +278,7 @@ class CommandHost(Protocol):
     The controller only coordinates command parsing, feedback, suggestions, and dispatch.
     """
 
-    state: Dict[str, Any]
+    state: GameSnapshot
     player_id: Optional[str]
     selected_room_name: Optional[str]
     preferred_name: str
@@ -416,8 +417,8 @@ class CommandController:
             valid_play_colors=VALID_PLAY_COLORS,
             hand=my_hand(self.host.state),
             rooms=self.host.rooms,
-            current_color=self.host.state.get("current_color"),
-            top_card=self.host.state.get("top_card") or None,
+            current_color=self.host.state.current_color,
+            top_card=self.host.state.top_card or None,
         )
 
     def render_meta(self, visible: bool, text: str) -> None:

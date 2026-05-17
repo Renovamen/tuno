@@ -3,6 +3,7 @@ from __future__ import annotations
 import unittest
 
 from tuno.client.runtime import ClientRuntime
+from tuno.core.snapshot import GameSnapshot
 
 
 class RuntimeCallbacks:
@@ -124,7 +125,7 @@ class ClientRuntimeTests(unittest.IsolatedAsyncioTestCase):
         """Apply core server messages to player id, snapshot state, and feedback."""
         callbacks = RuntimeCallbacks()
         runtime = self.build_runtime(callbacks)
-        runtime.state = {"current_color": "red", "top_card": {"short": "R:5"}}
+        runtime.state = GameSnapshot(current_color="red", top_card={"short": "R:5"})
 
         # Step 1: Welcome should bind this client to the server-assigned player id.
         await runtime.handle_message({"type": "welcome", "player_id": "p1"})
@@ -142,7 +143,7 @@ class ClientRuntimeTests(unittest.IsolatedAsyncioTestCase):
         )
 
         self.assertEqual(runtime.player_id, "p1")
-        self.assertEqual(runtime.state, {"started": True})
+        self.assertEqual(runtime.state, GameSnapshot(started=True))
         self.assertEqual(callbacks.clear_count, 2)
         self.assertIn("Illegal play:", callbacks.feedback[-1])
 
@@ -165,7 +166,7 @@ class ClientRuntimeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(runtime.rooms[0]["name"], "main")
         self.assertEqual(runtime.selected_room_name, "main")
         self.assertIsNone(runtime.player_id)
-        self.assertEqual(runtime.state, {})
+        self.assertEqual(runtime.state, GameSnapshot())
 
     async def test_room_closed_message_returns_to_room_lobby(self) -> None:
         """Clear room-scoped player and game state after leaving or closing a room."""
@@ -173,7 +174,7 @@ class ClientRuntimeTests(unittest.IsolatedAsyncioTestCase):
         runtime = self.build_runtime(callbacks)
         runtime.selected_room_name = "main"
         runtime.player_id = "p1"
-        runtime.state = {"started": True}
+        runtime.state = GameSnapshot(started=True)
         runtime.say_uno_next = True
 
         # Step 1: Simulate the server closing the selected room.
@@ -182,7 +183,7 @@ class ClientRuntimeTests(unittest.IsolatedAsyncioTestCase):
         # Step 2: The client should return to room-selection state.
         self.assertIsNone(runtime.selected_room_name)
         self.assertIsNone(runtime.player_id)
-        self.assertEqual(runtime.state, {})
+        self.assertEqual(runtime.state, GameSnapshot())
         self.assertFalse(runtime.say_uno_next)
 
     async def test_close_current_server_resets_runtime_state(self) -> None:
@@ -192,7 +193,7 @@ class ClientRuntimeTests(unittest.IsolatedAsyncioTestCase):
         api = FakeApi()
         runtime.api = api  # type: ignore[assignment]
         runtime.player_id = "p1"
-        runtime.state = {"started": True}
+        runtime.state = GameSnapshot(started=True)
         runtime.say_uno_next = True
 
         # Step 1: Close the current server connection.
@@ -201,7 +202,7 @@ class ClientRuntimeTests(unittest.IsolatedAsyncioTestCase):
         # Step 2: Runtime state and the fake transport should both show cleanup.
         self.assertIsNone(runtime.api)
         self.assertIsNone(runtime.player_id)
-        self.assertEqual(runtime.state, {})
+        self.assertEqual(runtime.state, GameSnapshot())
         self.assertFalse(runtime.say_uno_next)
         self.assertTrue(api.closed)
 
@@ -213,7 +214,7 @@ class ClientRuntimeTests(unittest.IsolatedAsyncioTestCase):
         runtime.api = api  # type: ignore[assignment]
         runtime.selected_room_name = "main"
         runtime.player_id = "p1"
-        runtime.state = {"started": True, "finished": False}
+        runtime.state = GameSnapshot(started=True, finished=False)
         runtime.say_uno_next = True
 
         await runtime.exit_game()
@@ -233,7 +234,7 @@ class ClientRuntimeTests(unittest.IsolatedAsyncioTestCase):
         runtime.api = api  # type: ignore[assignment]
         runtime.selected_room_name = "main"
         runtime.player_id = "p1"
-        runtime.state = {"started": True, "finished": True}
+        runtime.state = GameSnapshot(started=True, finished=True)
 
         await runtime.exit_game()
 

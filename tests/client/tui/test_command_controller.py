@@ -47,7 +47,7 @@ class ClientCommandControllerTests(ClientAppHarness):
         await self.connect_guest(guest, pilot)
 
         await app.execute_command("/start")
-        await self.wait_until(lambda: app.state.get("started") is True, pilot, message="game start")
+        await self.wait_until(lambda: app.state.started is True, pilot, message="game start")
 
         game = self.session.rooms["main"].state
         game.players[0].hand = [Card("blue", "7"), Card(None, "wild")]
@@ -58,7 +58,7 @@ class ClientCommandControllerTests(ClientAppHarness):
         game.status_message = "Illegal play scenario ready."
         await self.session.rooms["main"]._broadcast_state()
         await self.wait_until(
-            lambda: app.state.get("status_message") == "Illegal play scenario ready.",
+            lambda: app.state.status_message == "Illegal play scenario ready.",
             pilot,
             message="illegal play sync",
         )
@@ -89,9 +89,7 @@ class ClientCommandControllerTests(ClientAppHarness):
             # Step 1: Add a guest and start gameplay so `/exit` must send a leave.
             await self.connect_guest(guest, pilot)
             await app.execute_command("/start")
-            await self.wait_until(
-                lambda: app.state.get("started") is True, pilot, message="game start"
-            )
+            await self.wait_until(lambda: app.state.started is True, pilot, message="game start")
 
             # Step 2: `/exit` should drop local transport state immediately.
             await app.execute_command("/exit")

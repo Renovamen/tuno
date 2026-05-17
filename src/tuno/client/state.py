@@ -4,20 +4,22 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 
+from tuno.core.snapshot import GameSnapshot
 
-def my_hand(state: Dict[str, Any]) -> List[Dict[str, Any]]:
+
+def my_hand(state: GameSnapshot) -> List[Dict[str, Any]]:
     """Return the current player's visible hand from a client snapshot."""
-    for player in state.get("players", []):
-        if player.get("player_id") == state.get("your_player_id"):
+    for player in state.players:
+        if player.get("player_id") == state.your_player_id:
             return list(player.get("hand", []))
     return []
 
 
-def format_server_error(state: Dict[str, Any], message: str, code: str = "") -> str:
+def format_server_error(state: GameSnapshot, message: str, code: str = "") -> str:
     """Translate server error payloads into client-facing, context-rich text."""
-    top_card = state.get("top_card") or {}
+    top_card = state.top_card or {}
     top_label = top_card.get("short") or top_card.get("label") or "-"
-    current_color = state.get("current_color") or "-"
+    current_color = state.current_color or "-"
 
     match code:
         case "illegal_play":

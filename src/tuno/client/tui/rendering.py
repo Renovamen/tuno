@@ -9,6 +9,7 @@ from rich.markup import escape
 from rich.table import Table
 
 from tuno.client.state import my_hand
+from tuno.core.snapshot import GameSnapshot
 
 CARD_COLORS = {
     "red": "red",
@@ -25,10 +26,10 @@ _IMPORTANT_ACTIVITY_SUFFIXES = (
 )
 
 
-def role_label(state: Dict[str, Any]) -> str:
+def role_label(state: GameSnapshot) -> str:
     """Derive the local player's lobby/game role label from a snapshot."""
-    your_id = state.get("your_player_id")
-    host_id = state.get("host_player_id")
+    your_id = state.your_player_id
+    host_id = state.host_player_id
 
     if not your_id:
         return "not joined"
@@ -38,19 +39,19 @@ def role_label(state: Dict[str, Any]) -> str:
     return "player"
 
 
-def _phase_label(state: Dict[str, Any]) -> str:
+def _phase_label(state: GameSnapshot) -> str:
     """Derive the current room phase label from a snapshot."""
-    if state.get("started") and not state.get("finished"):
+    if state.started and not state.finished:
         return "game"
-    if state.get("finished"):
+    if state.finished:
         return "finished"
     return "lobby"
 
 
-def _local_player_name(state: Dict[str, Any]) -> str:
+def _local_player_name(state: GameSnapshot) -> str:
     """Return the local player's name from the player snapshot, or '?' before join."""
-    your_id = state.get("your_player_id")
-    for player in state.get("players", []):
+    your_id = state.your_player_id
+    for player in state.players:
         if player.get("player_id") == your_id:
             return str(player.get("name") or "?")
     return "?"
@@ -94,9 +95,9 @@ def _game_activity_events(events: Iterable[Any]) -> List[str]:
     return [event for event in map(str, events) if not _is_lobby_event(event)]
 
 
-def player_table(state: Dict[str, Any]) -> RenderableType:
+def player_table(state: GameSnapshot) -> RenderableType:
     """Render the player roster as a table, or a placeholder when empty."""
-    players = state.get("players", [])
+    players = state.players
     if not players:
         return "No players yet."
 
@@ -112,12 +113,12 @@ def player_table(state: Dict[str, Any]) -> RenderableType:
     table.add_column("#Cards")
 
     for player in players:
-        is_current = player.get("player_id") == state.get("current_player_id")
+        is_current = player.get("player_id") == state.current_player_id
         prefix = "❯" if is_current else " "
 
         name = escape(str(player["name"]))
-        host = " [host]" if player.get("player_id") == state.get("host_player_id") else ""
-        me = " (you)" if player.get("player_id") == state.get("your_player_id") else ""
+        host = " [host]" if player.get("player_id") == state.host_player_id else ""
+        me = " (you)" if player.get("player_id") == state.your_player_id else ""
 
         table.add_row(
             prefix,
@@ -143,7 +144,7 @@ def render_command_feedback(message: Optional[str]) -> str:
     return "" if not message else escape(message)
 
 
-def render_local_status_body(state: Dict[str, Any], *, room_name: Optional[str]) -> str:
+def render_local_status_body(state: GameSnapshot, *, room_name: Optional[str]) -> str:
     """Render the local-status section body."""
     player_name = escape(_local_player_name(state))
     room_label = escape(room_name or "?")
@@ -155,7 +156,7 @@ def render_local_status_body(state: Dict[str, Any], *, room_name: Optional[str])
     )
 
 
-def render_hand_body(state: Dict[str, Any], *, say_uno_next: bool) -> str:
+def render_hand_body(state: GameSnapshot, *, say_uno_next: bool) -> str:
     """Render the hand section body."""
     hand = my_hand(state)
     hand_lines: List[str] = []
@@ -169,12 +170,12 @@ def render_hand_body(state: Dict[str, Any], *, say_uno_next: bool) -> str:
     return "\n".join(hand_lines)
 
 
-def render_players_title(state: Dict[str, Any]) -> str:
+def render_players_title(state: GameSnapshot) -> str:
     """Render the dynamic players section title."""
-    return f"Players ({len(state.get('players', []))}/5)"
+    return f"Players ({len(state.players)}/5)"
 
 
-def render_players_body(state: Dict[str, Any]) -> RenderableType:
+def render_players_body(state: GameSnapshot) -> RenderableType:
     """Render the players section body."""
     return player_table(state)
 
@@ -213,17 +214,17 @@ def render_rooms_body(rooms: Iterable[Dict[str, Any]]) -> RenderableType:
     return table
 
 
-def render_top_card_body(state: Dict[str, Any]) -> str:
+def render_top_card_body(state: GameSnapshot) -> str:
     """Render the standalone top-card line shown above recent activity items."""
-    top = state.get("top_card") or {}
-    if not top or not state.get("started"):
+    top = state.top_card or {}
+    if not top or not state.started:
         return ""
-    return f"Top card: {top_card_markup(top, state.get('current_color'))}"
+    return f"Top card: {top_card_markup(top, state.current_color)}"
 
 
-def render_recent_activity_body(state: Dict[str, Any]) -> str:
+def render_recent_activity_body(state: GameSnapshot) -> str:
     """Render the recent-activity section body."""
-    events = state.get("recent_events") or []
+    events = state.recent_events or []
 
     game_events = _game_activity_events(events)
     recent = [recent_activity_markup(event) for event in game_events[-20:][::-1]]
