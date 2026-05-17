@@ -15,6 +15,7 @@ from tuno.client.tui.completion import (
     sync_completion_state,
 )
 from tuno.client.tui.suggestions import render_suggestions
+from tuno.core.cards import Color
 from tuno.core.snapshot import GameSnapshot
 
 
@@ -168,12 +169,7 @@ PLAYER_TURN_COMMANDS = (
     UNO_COMMAND.template,
 )
 
-VALID_PLAY_COLORS = (
-    "red",
-    "yellow",
-    "green",
-    "blue",
-)
+VALID_PLAY_COLORS = tuple(color.value for color in Color)
 
 
 def parse_command(raw: str) -> ParsedCommand:

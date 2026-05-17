@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Awaitable, Callable, Dict, Optional
 
 from tuno.client.state import my_hand
-from tuno.core.cards import WILD_RANKS
+from tuno.core.cards import Card, Color
 from tuno.core.snapshot import GameSnapshot
 
 if TYPE_CHECKING:
@@ -268,7 +268,7 @@ def _validate_play_choice(
     play_command_token: str,
     set_command_feedback: FeedbackFn,
 ) -> bool:
-    if card.get("rank") in WILD_RANKS:
+    if Card.from_dict(card).is_wild():
         return _validate_wild_choice(chosen_color, play_command_token, set_command_feedback)
 
     current_color = state.current_color
@@ -279,11 +279,9 @@ def _validate_play_choice(
         and card.get("color") != current_color
         and card.get("rank") != top_card.get("rank")
     ):
-        card_label = card.get("short") or card.get("label")
-        top_label = top_card.get("short") or top_card.get("label")
         set_command_feedback(
-            f"Illegal play: {card_label} does not match current color {current_color} "
-            f"or top card {top_label}."
+            f"Illegal play: {Card.from_dict(card).short_label()} does not match current color "
+            f"{current_color} or top card {Card.from_dict(top_card).short_label()}."
         )
         return False
     return True
@@ -292,7 +290,7 @@ def _validate_play_choice(
 def _validate_wild_choice(
     chosen_color: Optional[str], play_command_token: str, set_command_feedback: FeedbackFn
 ) -> bool:
-    if chosen_color is not None:
+    if Color.parse(chosen_color) is not None:
         return True
 
     set_command_feedback(

@@ -77,7 +77,8 @@ class ClientAppFlowTests(ClientAppHarness):
         )
         self.assertEqual(app.state.players[0]["card_count"], 2)
         self.assertFalse(app.state.your_turn)
-        self.assertEqual(app.state.top_card["short"], "R:5")
+        self.assertEqual(app.state.top_card["color"], "red")
+        self.assertEqual(app.state.top_card["rank"], "5")
 
     async def verify_wild_play(self, app: TunoApp, game, session, pilot) -> None:
         """Seed and verify a wild-card play with the chosen color."""

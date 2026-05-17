@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 
+from tuno.core.cards import Card
 from tuno.core.snapshot import GameSnapshot
 
 
@@ -18,7 +19,7 @@ def my_hand(state: GameSnapshot) -> List[Dict[str, Any]]:
 def format_server_error(state: GameSnapshot, message: str, code: str = "") -> str:
     """Translate server error payloads into client-facing, context-rich text."""
     top_card = state.top_card or {}
-    top_label = top_card.get("short") or top_card.get("label") or "-"
+    top_label = Card.from_dict(top_card).short_label() if top_card else "-"
     current_color = state.current_color or "-"
 
     match code:

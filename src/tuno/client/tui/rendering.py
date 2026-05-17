@@ -9,14 +9,8 @@ from rich.markup import escape
 from rich.table import Table
 
 from tuno.client.state import my_hand
+from tuno.core.cards import Card, Color
 from tuno.core.snapshot import GameSnapshot
-
-CARD_COLORS = {
-    "red": "red",
-    "yellow": "yellow",
-    "green": "green",
-    "blue": "blue",
-}
 
 _LOBBY_EVENT_SUBSTRINGS = ("joined the lobby", "left the lobby")
 _IMPORTANT_ACTIVITY_SUFFIXES = (
@@ -57,25 +51,16 @@ def _local_player_name(state: GameSnapshot) -> str:
     return "?"
 
 
-def card_markup(card: Dict[str, Any], *, prefer_short: bool = False) -> str:
-    """Render a card payload as Rich markup, escaping all untrusted text."""
-    color = card.get("color")
-    label = card.get("short") if prefer_short else card.get("label")
-    label = label or card.get("label") or card.get("short") or "Card"
-
-    if color in CARD_COLORS:
-        return f"[bold {CARD_COLORS[color]}]{escape(str(label))}[/]"
-
-    return f"[bold magenta]{escape(str(label))}[/]"
+def card_markup(card: Dict[str, Any]) -> str:
+    """Render a card payload as Rich markup using its short label."""
+    return Card.from_dict(card).event_markup()
 
 
 def top_card_markup(card: Dict[str, Any], current_color: Optional[str]) -> str:
     """Render the top card, using the chosen color for wild cards in play."""
-    display_card = dict(card)
-    if display_card.get("rank") in {"wild", "wild_draw_four"} and current_color in CARD_COLORS:
-        display_card["color"] = current_color
-
-    return card_markup(display_card, prefer_short=True)
+    parsed = Card.from_dict(card)
+    display_color = current_color if parsed.is_wild() and Color.parse(current_color) else None
+    return parsed.event_markup(display_color=display_color)
 
 
 def recent_activity_markup(event: str) -> str:
@@ -162,7 +147,7 @@ def render_hand_body(state: GameSnapshot, *, say_uno_next: bool) -> str:
     hand_lines: List[str] = []
 
     for index, card in enumerate(hand, start=1):
-        hand_lines.append(f"[{index:02d}] {card_markup(card, prefer_short=True)}")
+        hand_lines.append(f"[{index:02d}] {card_markup(card)}")
 
     if not hand:
         hand_lines.append("(empty)")

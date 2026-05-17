@@ -125,7 +125,7 @@ class ClientRuntimeTests(unittest.IsolatedAsyncioTestCase):
         """Apply core server messages to player id, snapshot state, and feedback."""
         callbacks = RuntimeCallbacks()
         runtime = self.build_runtime(callbacks)
-        runtime.state = GameSnapshot(current_color="red", top_card={"short": "R:5"})
+        runtime.state = GameSnapshot(current_color="red", top_card={"color": "red", "rank": "5"})
 
         # Step 1: Welcome should bind this client to the server-assigned player id.
         await runtime.handle_message({"type": "welcome", "player_id": "p1"})

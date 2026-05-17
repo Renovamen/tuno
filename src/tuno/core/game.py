@@ -6,7 +6,7 @@ import time
 from dataclasses import dataclass, field
 from typing import List, Optional
 
-from tuno.core.cards import COLORS, Card, Deck
+from tuno.core.cards import Card, Color, Deck
 from tuno.core.events import (
     disconnect_game_ended,
     disconnect_turn_passed,
@@ -172,7 +172,7 @@ class GameState:
 
         card = self._card_for_play(player, hand_index)
         chosen_color = self._resolve_play_color(card, chosen_color)
-        self._validate_wild_draw_four(player, hand_index, card)
+        self._validate_card_type_restrictions(player, hand_index, card)
         played = self._commit_play(player, hand_index, chosen_color, say_uno)
 
         if not player.hand:
@@ -247,14 +247,17 @@ class GameState:
         )
 
     def _resolve_play_color(self, card: Card, chosen_color: Optional[str]) -> Optional[str]:
-        if card.rank not in {"wild", "wild_draw_four"}:
-            return card.color
-        if chosen_color in COLORS:
-            return chosen_color
+        if not card.type.is_wild:
+            return card.color.value if card.color else None
+        color = Color.parse(chosen_color)
+        if color is not None:
+            return color.value
         raise GameError("Wild cards require a chosen color.", code="wild_needs_color")
 
-    def _validate_wild_draw_four(self, player: PlayerState, hand_index: int, card: Card) -> None:
-        if card.rank != "wild_draw_four":
+    def _validate_card_type_restrictions(
+        self, player: PlayerState, hand_index: int, card: Card
+    ) -> None:
+        if not card.type.requires_no_current_color_match:
             return
         if any(
             other.color == self.current_color
@@ -335,22 +338,16 @@ class GameState:
 
     def _apply_card_effect(self, card: Card) -> int:
         """Apply the played card's side effect and return extra turns to skip."""
-        if card.rank == "skip":
-            return 1
-        if card.rank == "reverse":
+        effect = card.type.effect
+        if effect.reverses_direction:
             self.direction *= -1
-            return 0
-        if card.rank == "draw_two":
+
+        if effect.draw_count:
             target = self._peek_next_player(steps=1)
-            self._deck.draw_to_hand(target, 2)
-            self.status_message += effect_drew_cards(target.name, 2)
-            return 1
-        if card.rank == "wild_draw_four":
-            target = self._peek_next_player(steps=1)
-            self._deck.draw_to_hand(target, 4)
-            self.status_message += effect_drew_cards(target.name, 4)
-            return 1
-        return 0
+            self._deck.draw_to_hand(target, effect.draw_count)
+            self.status_message += effect_drew_cards(target.name, effect.draw_count)
+
+        return 1 if effect.skips_next else 0
 
     def _advance_turn(self, extra_skip: int) -> None:
         """Advance turn order, resetting per-turn draw state on the way out."""

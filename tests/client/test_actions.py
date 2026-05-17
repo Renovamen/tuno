@@ -79,7 +79,7 @@ class ClientActionTests(unittest.IsolatedAsyncioTestCase):
             1,
             state=GameSnapshot(
                 current_color="red",
-                top_card={"rank": "5", "short": "R:5"},
+                top_card={"color": "red", "rank": "5"},
                 your_player_id="p1",
                 players=[
                     {"player_id": "p1", "hand": [{"rank": "5", "color": "blue"}]},
@@ -117,7 +117,7 @@ class ClientActionTests(unittest.IsolatedAsyncioTestCase):
             1,
             state=GameSnapshot(
                 current_color="red",
-                top_card={"rank": "5", "short": "R:5"},
+                top_card={"color": "red", "rank": "5"},
                 your_player_id="p1",
                 players=[
                     {"player_id": "p1", "hand": [{"rank": "7", "color": "blue"}]},

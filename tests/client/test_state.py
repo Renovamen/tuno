@@ -29,7 +29,7 @@ class ClientStateTests(unittest.TestCase):
 
     def test_format_server_error_uses_snapshot_context_for_illegal_play(self) -> None:
         message = format_server_error(
-            GameSnapshot(current_color="red", top_card={"short": "R:5"}),
+            GameSnapshot(current_color="red", top_card={"color": "red", "rank": "5"}),
             "That card cannot be played.",
             "illegal_play",
         )

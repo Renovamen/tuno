@@ -65,8 +65,8 @@ class ClientCompletionTests(unittest.TestCase):
             card_command_token=PLAY_COMMAND.token,
             valid_play_colors=VALID_PLAY_COLORS,
             hand=[
-                {"rank": "wild", "short": "WILD", "label": "WILD"},
-                {"rank": "7", "short": "G:7", "label": "Green 7"},
+                {"color": None, "rank": "wild"},
+                {"color": "green", "rank": "7"},
             ],
         )
         self.assertEqual(candidates[0]["insert"], "/play 1 ")

@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from os.path import commonprefix
 from typing import Any, Callable, Dict, List, Optional, Sequence
 
-from tuno.core.cards import WILD_RANKS
+from tuno.core.cards import Card
 
 
 @dataclass
@@ -45,7 +45,7 @@ def _is_legal_to_play(
     card: Dict[str, Any], current_color: Optional[str], top_card: Optional[Dict[str, Any]]
 ) -> bool:
     """Return True if the card is playable given the current game state."""
-    if card.get("rank") in WILD_RANKS:
+    if Card.from_dict(card).is_wild():
         return True
     if not current_color or not top_card:
         return True  # game hasn't started yet; cannot determine legality
@@ -188,14 +188,12 @@ def _play_card_candidates(
         token = str(index)
         if not token.startswith(prefix) or not _is_legal_to_play(card, current_color, top_card):
             continue
-        suffix = " <color>" if card.get("rank") in WILD_RANKS else ""
+        parsed = Card.from_dict(card)
+        suffix = " <color>" if parsed.is_wild() else ""
         matches.append(
             {
                 "insert": f"{card_command_token} {token}" + (" " if suffix else ""),
-                "display": (
-                    f"{card_command_token} {token}{suffix} — "
-                    f"{card.get('short') or card.get('label')}"
-                ),
+                "display": (f"{card_command_token} {token}{suffix} — {parsed.short_label()}"),
             }
         )
     return matches
@@ -213,7 +211,7 @@ def _play_color_candidates(
     except ValueError:
         return []
 
-    if not (0 <= hand_index < len(hand) and hand[hand_index].get("rank") in WILD_RANKS):
+    if not (0 <= hand_index < len(hand) and Card.from_dict(hand[hand_index]).is_wild()):
         return []
     if not ((len(parts) == 2 and trailing_space) or (len(parts) == 3 and not trailing_space)):
         return []
