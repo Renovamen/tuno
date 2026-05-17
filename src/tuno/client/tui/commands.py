@@ -17,6 +17,45 @@ from tuno.client.tui.completion import (
 from tuno.client.tui.suggestions import render_suggestions
 
 
+@dataclass(frozen=True)
+class CommandMessages:
+    """User-visible command-bar feedback strings shared by the runtime and controller."""
+
+    # Command errors
+    join_usage: str = "Command error: Usage: /join <player_name>"
+    server_first: str = "Command error: Connect to a server first with /server <server>"
+    room_first_connect: str = "Command error: Choose a room first with /connect or /create."
+    room_url_required: str = "Command error: /server requires a ws:// or wss:// URL."
+    room_name_required: str = "Command error: Room name is required."
+    not_connected: str = "Command error: Not connected to a server."
+    room_first: str = "Command error: Connect to a room first with /connect <room>."
+    join_first: str = "Command error: Join the game first with /join <player_name>."
+    exit_game_active_only: str = "Command error: /exit_game is only allowed during an active game."
+    connect_first: str = "Command error: Connect first."
+
+    # Status updates
+    connected_choose_room: str = (
+        "Connected to server. Choose a room: /connect <room> or /create <room>"
+    )
+    disconnecting: str = "Disconnecting from server..."
+    disconnected: str = "Disconnected from server. Use /server <server> to connect again."
+    left_game: str = "Left the game. You are now spectating this room."
+    waiting_response: str = "Waiting for server response..."
+    select_server_hint: str = "Select a server with Up/Down, then press Enter."
+
+    # Dynamic templates
+    join_failed: str = "Join failed: {error}"
+    server_connect_failed: str = "Server connect failed: {error}"
+    room_command_failed: str = "Room command failed: {error}"
+    send_failed: str = "Error: Send failed: {error}"
+    disconnected_error: str = "Disconnected: {error}"
+    parse_error: str = "Command error: {error}. Try /help."
+    no_server_history: str = "Command error: No server history. Usage: {usage}"
+
+
+COMMAND_MESSAGES = CommandMessages()
+
+
 class CommandError(ValueError):
     """Raised when a user enters an invalid command."""
 
@@ -282,7 +321,7 @@ class CommandController:
         try:
             command = parse_command(raw)
         except CommandError as exc:
-            self.set_feedback(f"Command error: {exc}. Try /help.")
+            self.set_feedback(COMMAND_MESSAGES.parse_error.format(error=exc))
             return
 
         await self.dispatch(command)
@@ -349,7 +388,7 @@ class CommandController:
     def set_pending_server_response(self) -> None:
         """Show a waiting hint after a valid command is sent to the server."""
         self.awaiting_server_response = True
-        self.command_feedback_message = "Waiting for server response..."
+        self.command_feedback_message = COMMAND_MESSAGES.waiting_response
         self.host.render_state()
 
     def available_commands(self) -> List[str]:
@@ -471,7 +510,7 @@ class CommandController:
         """Show the selectable server history list after a bare server command."""
         if not self.host.server_history:
             self.server_history_active = False
-            self.set_feedback(f"Command error: No server history. Usage: {SERVER_COMMAND.usage}")
+            self.set_feedback(COMMAND_MESSAGES.no_server_history.format(usage=SERVER_COMMAND.usage))
             return
 
         self.server_history_active = True
@@ -482,14 +521,14 @@ class CommandController:
         command_input.cursor_position = len(command_input.value)
         command_input.focus()
 
-        self.set_feedback("Select a server with Up/Down, then press Enter.")
+        self.set_feedback(COMMAND_MESSAGES.select_server_hint)
 
     async def connect_selected_server_history(self) -> None:
         """Connect to the currently selected server history entry."""
         candidates = self._server_history_candidates("") or []
         if not candidates:
             self.server_history_active = False
-            self.set_feedback(f"Command error: No server history. Usage: {SERVER_COMMAND.usage}")
+            self.set_feedback(COMMAND_MESSAGES.no_server_history.format(usage=SERVER_COMMAND.usage))
             return
 
         index = min(self.completion_state.suggestion_index, len(candidates) - 1)

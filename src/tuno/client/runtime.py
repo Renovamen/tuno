@@ -11,6 +11,7 @@ from urllib.parse import urlparse
 from tuno.client.api import ClientAPI
 from tuno.client.config import load_server_history, remember_server
 from tuno.client.state import format_server_error
+from tuno.client.tui.commands import COMMAND_MESSAGES
 from tuno.client.updates import (
     build_update_notice,
     fetch_latest_release_version,
@@ -92,21 +93,21 @@ class ClientRuntime:
 
         name = (player_name or self.preferred_name).strip()
         if not name:
-            self._set_feedback("Command error: Usage: /join <player_name>")
+            self._set_feedback(COMMAND_MESSAGES.join_usage)
             return
         self.preferred_name = name
 
         if self.api is None:
-            self._set_feedback("Command error: Connect to a server first with /server <server>")
+            self._set_feedback(COMMAND_MESSAGES.server_first)
             return
         if self.selected_room_name is None:
-            self._set_feedback("Command error: Choose a room first with /connect or /create.")
+            self._set_feedback(COMMAND_MESSAGES.room_first_connect)
             return
 
         try:
             await self.api.send("join", name=name)
         except Exception as exc:  # pragma: no cover
-            self._set_feedback(f"Join failed: {exc}")
+            self._set_feedback(COMMAND_MESSAGES.join_failed.format(error=exc))
             await self.api.close()
             self.api = None
 
@@ -115,7 +116,7 @@ class ClientRuntime:
         target_url = url.strip()
         parsed = urlparse(target_url)
         if parsed.scheme not in {"ws", "wss"} or not parsed.netloc:
-            self._set_feedback("Command error: /server requires a ws:// or wss:// URL.")
+            self._set_feedback(COMMAND_MESSAGES.room_url_required)
             return
 
         next_api = self._api_factory(target_url)
@@ -123,7 +124,7 @@ class ClientRuntime:
         try:
             await next_api.open()
         except Exception as exc:  # pragma: no cover
-            self._set_feedback(f"Server connect failed: {exc}")
+            self._set_feedback(COMMAND_MESSAGES.server_connect_failed.format(error=exc))
             return
 
         self.server_history = remember_server(target_url)
@@ -133,7 +134,7 @@ class ClientRuntime:
         self.listener_task = self._task_factory(self.listen_loop())
         self.selected_room_name = None
         self.rooms = []
-        self._set_feedback("Connected to server. Choose a room: /connect <room> or /create <room>")
+        self._set_feedback(COMMAND_MESSAGES.connected_choose_room)
 
     async def join_room(self, name: str) -> None:
         """Ask the connected server to enter an existing room."""
@@ -145,18 +146,18 @@ class ClientRuntime:
 
     async def _send_room_command(self, kind: str, name: str) -> None:
         if self.api is None:
-            self._set_feedback("Command error: Connect to a server first with /server <server>")
+            self._set_feedback(COMMAND_MESSAGES.server_first)
             return
 
         room_name = name.strip()
         if not room_name:
-            self._set_feedback("Command error: Room name is required.")
+            self._set_feedback(COMMAND_MESSAGES.room_name_required)
             return
 
         try:
             await self.api.send(kind, name=room_name)
         except Exception as exc:  # pragma: no cover
-            self._set_feedback(f"Room command failed: {exc}")
+            self._set_feedback(COMMAND_MESSAGES.room_command_failed.format(error=exc))
 
     async def close_current_server(self) -> None:
         """Close the active websocket and clear state before switching servers."""
@@ -181,10 +182,10 @@ class ClientRuntime:
     async def exit_server(self) -> None:
         """Drop the active server connection without exiting the app."""
         if self.api is None:
-            self._set_feedback("Command error: Not connected to a server.")
+            self._set_feedback(COMMAND_MESSAGES.not_connected)
             return
 
-        self._set_feedback("Disconnecting from server...")
+        self._set_feedback(COMMAND_MESSAGES.disconnecting)
 
         # Send "leave" first so the server can release the player slot cleanly.
         if self.player_id is not None:
@@ -192,32 +193,32 @@ class ClientRuntime:
                 await self.api.send("leave")
 
         await self.close_current_server()
-        self._set_feedback("Disconnected from server. Use /server <server> to connect again.")
+        self._set_feedback(COMMAND_MESSAGES.disconnected)
 
     async def exit_game(self) -> None:
         """Leave the active round while keeping the room connection for spectating."""
         if self.api is None:
-            self._set_feedback("Command error: Not connected to a server.")
+            self._set_feedback(COMMAND_MESSAGES.not_connected)
             return
         if self.selected_room_name is None:
-            self._set_feedback("Command error: Connect to a room first with /connect <room>.")
+            self._set_feedback(COMMAND_MESSAGES.room_first)
             return
         if self.player_id is None:
-            self._set_feedback("Command error: Join the game first with /join <player_name>.")
+            self._set_feedback(COMMAND_MESSAGES.join_first)
             return
         if not self.state.get("started") or self.state.get("finished"):
-            self._set_feedback("Command error: /exit_game is only allowed during an active game.")
+            self._set_feedback(COMMAND_MESSAGES.exit_game_active_only)
             return
 
         try:
             await self.api.send("leave")
         except Exception as exc:  # pragma: no cover
-            self._set_feedback(f"Error: Send failed: {exc}")
+            self._set_feedback(COMMAND_MESSAGES.send_failed.format(error=exc))
             return
 
         self.player_id = None
         self.say_uno_next = False
-        self._set_feedback("Left the game. You are now spectating this room.")
+        self._set_feedback(COMMAND_MESSAGES.left_game)
 
     async def exit_client(self) -> None:
         """Exit the UI immediately and finish websocket cleanup in the background."""
@@ -274,7 +275,7 @@ class ClientRuntime:
             self.rooms = []
             self.api = None
             self.state = {}
-            self._set_feedback(f"Disconnected: {exc}")
+            self._set_feedback(COMMAND_MESSAGES.disconnected_error.format(error=exc))
 
     async def handle_message(self, message: Dict[str, Any]) -> None:
         """Apply one decoded server message to local client state."""
@@ -316,13 +317,13 @@ class ClientRuntime:
     async def send(self, kind: str, **payload: Any) -> None:
         """Send one action to the server or surface a local transport error."""
         if not self.api:
-            self._set_feedback("Command error: Connect first.")
+            self._set_feedback(COMMAND_MESSAGES.connect_first)
             return
         if kind == "exit_room" and self.selected_room_name is None:
-            self._set_feedback("Command error: Connect to a room first with /connect <room>.")
+            self._set_feedback(COMMAND_MESSAGES.room_first)
             return
 
         try:
             await self.api.send(kind, **payload)
         except Exception as exc:  # pragma: no cover
-            self._set_feedback(f"Error: Send failed: {exc}")
+            self._set_feedback(COMMAND_MESSAGES.send_failed.format(error=exc))
