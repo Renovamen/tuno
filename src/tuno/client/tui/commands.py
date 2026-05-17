@@ -5,7 +5,6 @@ from typing import Any, Dict, List, Optional, Protocol
 
 from textual.widgets import Input, Static
 
-from tuno.client.actions import dispatch_command as dispatch_command_action
 from tuno.client.state import my_hand
 from tuno.client.tui.completion import (
     CompletionState,
@@ -53,6 +52,32 @@ class CommandMessages:
     disconnected_error: str = "Disconnected: {error}"
     parse_error: str = "Command error: {error}. Try /help."
     no_server_history: str = "Command error: No server history. Usage: {usage}"
+
+    # Local play validation
+    play_requires_positive_number: str = (
+        "Command error: {token} requires a positive card number. Example: {token} 3"
+    )
+    play_out_of_range: str = "Illegal play: card {number} is out of range for your current hand."
+    play_card_mismatch: str = (
+        "Illegal play: {card} does not match current color {color} or top card {top}."
+    )
+    play_wild_requires_color: str = (
+        "Illegal play: wild cards require a color. Example: {token} 1 red"
+    )
+
+    # Server error translations
+    server_illegal_play: str = (
+        "Illegal play: card does not match current color {color} or top card {top}."
+    )
+    server_wild_needs_color: str = "Illegal play: wild cards require a color. Example: /play 1 red"
+    server_wild_draw_four_restricted: str = (
+        "Illegal play: Wild Draw Four only works when you have no card matching current "
+        "color {color}."
+    )
+    server_invalid_selection: str = (
+        "Illegal play: that card number is not valid for your current hand."
+    )
+    server_error_fallback: str = "Error: {message}"
 
 
 COMMAND_MESSAGES = CommandMessages()
@@ -325,6 +350,8 @@ class CommandController:
 
     async def dispatch(self, command: ParsedCommand) -> None:
         """Execute a parsed command while preserving the existing render/update hooks."""
+        from tuno.client.actions import dispatch_command
+
         previous_uno_state = self.host.say_uno_next
         if command.name not in {
             HELP_COMMAND.name,
@@ -337,7 +364,7 @@ class CommandController:
             self.show_server_history()
         else:
             self.server_history_active = False
-            self.host.say_uno_next = await dispatch_command_action(
+            self.host.say_uno_next = await dispatch_command(
                 command,
                 preferred_name=self.host.preferred_name,
                 say_uno_next=self.host.say_uno_next,
