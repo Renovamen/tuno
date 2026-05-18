@@ -125,7 +125,7 @@ def render_tuno_logo() -> str:
 
 
 def render_command_feedback(message: Optional[str]) -> str:
-    """Render the command feedback banner shown above the input box."""
+    """Render the command feedback banner shown beneath the input box."""
     return "" if not message else escape(message)
 
 

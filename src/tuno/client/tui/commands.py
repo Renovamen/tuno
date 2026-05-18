@@ -19,66 +19,6 @@ from tuno.core.snapshot import GameSnapshot
 from tuno.protocol.messages import ClientMsg
 
 
-class CommandMessages:
-    """User-visible command-bar feedback strings shared by the runtime and controller."""
-
-    # Command errors
-    join_usage: str = "Command error: Usage: /join <player_name>"
-    server_first: str = "Command error: Connect to a server first with /server <server>"
-    room_first_connect: str = "Command error: Choose a room first with /connect or /create."
-    room_url_required: str = "Command error: /server requires a ws:// or wss:// URL."
-    room_name_required: str = "Command error: Room name is required."
-    not_connected: str = "Command error: Not connected to a server."
-    room_first: str = "Command error: Connect to a room first with /connect <room>."
-    join_first: str = "Command error: Join the game first with /join <player_name>."
-    connect_first: str = "Command error: Connect first."
-
-    # Status updates
-    connected_choose_room: str = (
-        "Connected to server. Choose a room: /connect <room> or /create <room>"
-    )
-    disconnecting: str = "Disconnecting from server..."
-    disconnected: str = "Disconnected from server. Use /server <server> to connect again."
-    left_game: str = "Left the game. You are now spectating this room."
-    waiting_response: str = "Waiting for server response..."
-    select_server_hint: str = "Select a server with Up/Down, then press Enter."
-
-    # Dynamic templates
-    join_failed: str = "Join failed: {error}"
-    server_connect_failed: str = "Server connect failed: {error}"
-    room_command_failed: str = "Room command failed: {error}"
-    send_failed: str = "Error: Send failed: {error}"
-    disconnected_error: str = "Disconnected: {error}"
-    parse_error: str = "Command error: {error}. Try /help."
-    no_server_history: str = "Command error: No server history. Usage: {usage}"
-
-    # Local play validation
-    play_requires_positive_number: str = (
-        "Command error: {token} requires a positive card number. Example: {token} 3"
-    )
-    play_out_of_range: str = "Illegal play: card {number} is out of range for your current hand."
-    play_card_mismatch: str = (
-        "Illegal play: {card} does not match current color {color} or top card {top}."
-    )
-    play_wild_requires_color: str = (
-        "Illegal play: wild cards require a color. Example: {token} 1 red"
-    )
-
-    # Server error translations
-    server_illegal_play: str = (
-        "Illegal play: card does not match current color {color} or top card {top}."
-    )
-    server_wild_needs_color: str = "Illegal play: wild cards require a color. Example: /play 1 red"
-    server_wild_draw_four_restricted: str = (
-        "Illegal play: Wild Draw Four only works when you have no card matching current "
-        "color {color}."
-    )
-    server_invalid_selection: str = (
-        "Illegal play: that card number is not valid for your current hand."
-    )
-    server_error_fallback: str = "Error: {message}"
-
-
 class CommandError(ValueError):
     """Raised when a user enters an invalid command."""
 
@@ -132,6 +72,83 @@ class Commands:
     EXIT = CommandSpec("exit", "/exit", triggers_server_wait=False)
 
 
+class CommandMessages:
+    """User-visible command-bar feedback strings shared by the runtime and controller."""
+
+    # Command errors
+    join_usage: str = f"Command error: Usage: {Commands.JOIN.template}"
+    server_first: str = f"Command error: Connect to a server first with {Commands.SERVER.template}"
+    room_first_connect: str = (
+        f"Command error: Choose a room first with {Commands.CONNECT.token} "
+        f"or {Commands.CREATE.token}."
+    )
+    room_url_required: str = (
+        f"Command error: {Commands.SERVER.token} requires a ws:// or wss:// URL."
+    )
+    room_name_required: str = "Command error: Room name is required."
+    not_connected: str = "Command error: Not connected to a server."
+    room_first: str = f"Command error: Connect to a room first with {Commands.CONNECT.template}."
+    join_first: str = f"Command error: Join the game first with {Commands.JOIN.template}."
+    connect_first: str = "Command error: Connect first."
+
+    # Status updates
+    connected_choose_room: str = (
+        f"Connected to server. Choose a room: {Commands.CONNECT.template} "
+        f"or {Commands.CREATE.template}"
+    )
+    disconnecting: str = "Disconnecting from server..."
+    disconnected: str = (
+        f"Disconnected from server. Use {Commands.SERVER.template} to connect again."
+    )
+    left_game: str = "Left the game. You are now spectating this room."
+    waiting_response: str = "Waiting for server response..."
+    select_server_hint: str = "Select a server with Up/Down, then press Enter."
+
+    # Default command meta guidance
+    meta_connect_server: str = f"Connect to a server: {Commands.SERVER.template}"
+    meta_choose_room: str = (
+        f"Choose a room: {Commands.CONNECT.template} or {Commands.CREATE.template}"
+    )
+    meta_join_game: str = f"Join the game: {Commands.JOIN.template}"
+
+    # Dynamic templates
+    join_failed: str = "Join failed: {error}"
+    server_connect_failed: str = "Server connect failed: {error}"
+    room_command_failed: str = "Room command failed: {error}"
+    send_failed: str = "Error: Send failed: {error}"
+    disconnected_error: str = "Disconnected: {error}"
+    parse_error: str = f"Command error: {{error}}. Try {Commands.HELP.token}."
+    no_server_history: str = "Command error: No server history. Usage: {usage}"
+
+    # Local play validation
+    play_requires_positive_number: str = (
+        "Command error: {token} requires a positive card number. Example: {token} 3"
+    )
+    play_out_of_range: str = "Illegal play: card {number} is out of range for your current hand."
+    play_card_mismatch: str = (
+        "Illegal play: {card} does not match current color {color} or top card {top}."
+    )
+    play_wild_requires_color: str = (
+        "Illegal play: wild cards require a color. Example: {token} 1 red"
+    )
+
+    # Server error translations
+    server_illegal_play: str = (
+        "Illegal play: card does not match current color {color} or top card {top}."
+    )
+    server_wild_needs_color: str = (
+        f"Illegal play: wild cards require a color. Example: {Commands.PLAY.token} 1 red"
+    )
+    server_wild_draw_four_restricted: str = (
+        "Illegal play: Wild Draw Four only works when you have no card matching current "
+        "color {color}."
+    )
+    server_invalid_selection: str = (
+        "Illegal play: that card number is not valid for your current hand."
+    )
+    server_error_fallback: str = "Error: {message}"
+
+
 COMMAND_SPECS_BY_NAME: Dict[str, CommandSpec] = {
     spec.name: spec for spec in vars(Commands).values() if isinstance(spec, CommandSpec)
 }
@@ -164,6 +181,15 @@ JOINED_EXIT_COMMANDS: tuple[CommandSpec, ...] = (
 PLAYER_JOIN_COMMANDS: tuple[CommandSpec, ...] = (Commands.JOIN, *ROOM_EXIT_COMMANDS)
 
 VALID_PLAY_COLORS = tuple(color.value for color in Color)
+
+
+def default_command_meta_text(*, connected: bool, room_selected: bool) -> str:
+    """Return the default command-bar guidance when no feedback is active."""
+    if not connected:
+        return CommandMessages.meta_connect_server
+    if not room_selected:
+        return CommandMessages.meta_choose_room
+    return CommandMessages.meta_join_game
 
 
 def parse_command(raw: str) -> ParsedCommand:
@@ -368,7 +394,8 @@ class CommandController:
             self.host.render_state()
 
     def set_feedback(self, message: str) -> None:
-        """Update the short-lived feedback shown beneath the input."""
+        """Update the short-lived feedback shown beneath the input.
+        `render_state` will render it via `render_meta`."""
         self.awaiting_server_response = False
         self.command_feedback_message = message
         self.host.render_state()
@@ -569,8 +596,8 @@ class CommandController:
         ]
 
     def _default_meta_text(self) -> str:
-        if self.host.api is None:
-            return f"Connect to a server: {Commands.SERVER.template}"
-        if self.host.selected_room_name is None:
-            return f"Choose a room: {Commands.CONNECT.template} or {Commands.CREATE.template}"
-        return f"Join the game: {Commands.JOIN.template}"
+        """Build default meta text for local refreshes that bypass render_state."""
+        return default_command_meta_text(
+            connected=self.host.api is not None,
+            room_selected=self.host.selected_room_name is not None,
+        )

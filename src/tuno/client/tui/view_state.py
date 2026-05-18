@@ -7,6 +7,7 @@ from typing import Any, Dict, Sequence
 
 from rich.console import RenderableType
 
+from tuno.client.tui.commands import default_command_meta_text
 from tuno.client.tui.rendering import (
     render_command_feedback,
     render_hand_body,
@@ -93,8 +94,4 @@ def _command_meta_text(
         return render_command_feedback(command_feedback_message)
     if player_id is not None:
         return ""
-    if connected and not room_selected:
-        return "Choose a room: /connect <room> or /create <room>"
-    if connected:
-        return "Join the game: /join <player_name>"
-    return "Connect to a server: /server <server>"
+    return default_command_meta_text(connected=connected, room_selected=room_selected)
