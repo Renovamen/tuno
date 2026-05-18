@@ -102,97 +102,70 @@ class CommandSpec:
     min_args: int = 0
     max_args: int = 0
     trailing_space_completion: bool = False
+    triggers_server_wait: bool = True
 
     @property
     def token(self) -> str:
         return f"/{self.name}"
 
-    @property
-    def usage(self) -> str:
-        return self.template
 
-    @property
-    def takes_args(self) -> bool:
-        return self.max_args > 0
+class Commands:
+    """Canonical slash-command specs, accessed as Commands.PLAY etc."""
 
-
-COMMAND_SPECS_BY_NAME = {
-    spec.name: spec
-    for spec in (
-        CommandSpec(
-            "connect", "/connect <room>", min_args=1, max_args=1, trailing_space_completion=True
-        ),
-        CommandSpec("server", "/server <server>", max_args=1, trailing_space_completion=True),
-        CommandSpec(
-            "join", "/join <player_name>", min_args=1, max_args=1, trailing_space_completion=True
-        ),
-        CommandSpec(
-            "create", "/create <room>", min_args=1, max_args=1, trailing_space_completion=True
-        ),
-        CommandSpec("start", "/start"),
-        CommandSpec(
-            "play", "/play <n> [color]", min_args=1, max_args=2, trailing_space_completion=True
-        ),
-        CommandSpec("draw", "/draw"),
-        CommandSpec("pass", "/pass"),
-        CommandSpec("uno", "/uno"),
-        CommandSpec("exit_game", "/exit_game"),
-        CommandSpec("exit_room", "/exit_room"),
-        CommandSpec("help", "/help"),
-        CommandSpec("exit_server", "/exit_server"),
-        CommandSpec("exit", "/exit"),
+    CONNECT = CommandSpec(
+        "connect", "/connect <room>", min_args=1, max_args=1, trailing_space_completion=True
     )
+    SERVER = CommandSpec("server", "/server <server>", max_args=1, trailing_space_completion=True)
+    JOIN = CommandSpec(
+        "join", "/join <player_name>", min_args=1, max_args=1, trailing_space_completion=True
+    )
+    CREATE = CommandSpec(
+        "create", "/create <room>", min_args=1, max_args=1, trailing_space_completion=True
+    )
+    START = CommandSpec("start", "/start")
+    PLAY = CommandSpec(
+        "play", "/play <n> [color]", min_args=1, max_args=2, trailing_space_completion=True
+    )
+    DRAW = CommandSpec("draw", "/draw")
+    PASS = CommandSpec("pass", "/pass")
+    UNO = CommandSpec("uno", "/uno")
+    EXIT_GAME = CommandSpec("exit_game", "/exit_game")
+    EXIT_ROOM = CommandSpec("exit_room", "/exit_room")
+    HELP = CommandSpec("help", "/help", triggers_server_wait=False)
+    EXIT_SERVER = CommandSpec("exit_server", "/exit_server", triggers_server_wait=False)
+    EXIT = CommandSpec("exit", "/exit", triggers_server_wait=False)
+
+
+COMMAND_SPECS_BY_NAME: Dict[str, CommandSpec] = {
+    spec.name: spec for spec in vars(Commands).values() if isinstance(spec, CommandSpec)
 }
 
-CANONICAL_COMMANDS = frozenset(COMMAND_SPECS_BY_NAME)
-
-CONNECT_COMMAND = COMMAND_SPECS_BY_NAME["connect"]
-SERVER_COMMAND = COMMAND_SPECS_BY_NAME["server"]
-JOIN_PLAYER_COMMAND = COMMAND_SPECS_BY_NAME["join"]
-CREATE_ROOM_COMMAND = COMMAND_SPECS_BY_NAME["create"]
-START_COMMAND = COMMAND_SPECS_BY_NAME["start"]
-PLAY_COMMAND = COMMAND_SPECS_BY_NAME["play"]
-DRAW_COMMAND = COMMAND_SPECS_BY_NAME["draw"]
-PASS_COMMAND = COMMAND_SPECS_BY_NAME["pass"]
-UNO_COMMAND = COMMAND_SPECS_BY_NAME["uno"]
-EXIT_GAME_COMMAND = COMMAND_SPECS_BY_NAME["exit_game"]
-EXIT_ROOM_COMMAND = COMMAND_SPECS_BY_NAME["exit_room"]
-HELP_COMMAND = COMMAND_SPECS_BY_NAME["help"]
-EXIT_SERVER_COMMAND = COMMAND_SPECS_BY_NAME["exit_server"]
-EXIT_COMMAND = COMMAND_SPECS_BY_NAME["exit"]
-
-SERVER_SELECTION_COMMANDS = (
-    SERVER_COMMAND.template,
-    HELP_COMMAND.template,
-    EXIT_COMMAND.template,
+SERVER_SELECTION_COMMANDS: tuple[CommandSpec, ...] = (
+    Commands.SERVER,
+    Commands.HELP,
+    Commands.EXIT,
 )
-ROOM_SELECTION_COMMANDS = (
-    CONNECT_COMMAND.template,
-    CREATE_ROOM_COMMAND.template,
-    HELP_COMMAND.template,
-    EXIT_SERVER_COMMAND.template,
-    EXIT_COMMAND.template,
+ROOM_SELECTION_COMMANDS: tuple[CommandSpec, ...] = (
+    Commands.CONNECT,
+    Commands.CREATE,
+    Commands.HELP,
+    Commands.EXIT_SERVER,
+    Commands.EXIT,
 )
-ROOM_EXIT_COMMANDS = (
-    HELP_COMMAND.template,
-    EXIT_ROOM_COMMAND.template,
-    EXIT_SERVER_COMMAND.template,
-    EXIT_COMMAND.template,
+ROOM_EXIT_COMMANDS: tuple[CommandSpec, ...] = (
+    Commands.HELP,
+    Commands.EXIT_ROOM,
+    Commands.EXIT_SERVER,
+    Commands.EXIT,
 )
-IN_GAME_EXIT_COMMANDS = (
-    HELP_COMMAND.template,
-    EXIT_GAME_COMMAND.template,
-    EXIT_ROOM_COMMAND.template,
-    EXIT_SERVER_COMMAND.template,
-    EXIT_COMMAND.template,
+IN_GAME_EXIT_COMMANDS: tuple[CommandSpec, ...] = (
+    Commands.HELP,
+    Commands.EXIT_GAME,
+    Commands.EXIT_ROOM,
+    Commands.EXIT_SERVER,
+    Commands.EXIT,
 )
-PLAYER_JOIN_COMMANDS = (JOIN_PLAYER_COMMAND.template, *ROOM_EXIT_COMMANDS)
-PLAYER_TURN_COMMANDS = (
-    PLAY_COMMAND.template,
-    DRAW_COMMAND.template,
-    PASS_COMMAND.template,
-    UNO_COMMAND.template,
-)
+PLAYER_JOIN_COMMANDS: tuple[CommandSpec, ...] = (Commands.JOIN, *ROOM_EXIT_COMMANDS)
 
 VALID_PLAY_COLORS = tuple(color.value for color in Color)
 
@@ -215,17 +188,15 @@ def parse_command(raw: str) -> ParsedCommand:
     if spec is None:
         raise CommandError(f"Unknown command: /{name}")
 
-    if not spec.takes_args and args:
-        raise CommandError(f"{spec.token} does not take arguments.")
     if len(args) < spec.min_args or len(args) > spec.max_args:
-        raise CommandError(f"Usage: {spec.usage}")
+        raise CommandError(f"Usage: {spec.template}")
 
-    if spec is PLAY_COMMAND:
+    if spec is Commands.PLAY:
         if not args[0].isdigit():
-            raise CommandError(f"{PLAY_COMMAND.token} requires a numeric card index.")
+            raise CommandError(f"{Commands.PLAY.token} requires a numeric card index.")
         if len(args) == 2 and args[1].lower() not in VALID_PLAY_COLORS:
             raise CommandError(
-                f"{PLAY_COMMAND.token} color must be one of: {', '.join(VALID_PLAY_COLORS)}."
+                f"{Commands.PLAY.token} color must be one of: {', '.join(VALID_PLAY_COLORS)}."
             )
 
     return ParsedCommand(name=name, args=args)
@@ -239,6 +210,26 @@ def derive_available_commands(
     joined: bool,
     uno_armed: bool,
 ) -> List[str]:
+    return [
+        spec.template
+        for spec in _derive_available_specs(
+            state,
+            connected=connected,
+            room_selected=room_selected,
+            joined=joined,
+            uno_armed=uno_armed,
+        )
+    ]
+
+
+def _derive_available_specs(
+    state: GameSnapshot,
+    *,
+    connected: bool,
+    room_selected: bool,
+    joined: bool,
+    uno_armed: bool,
+) -> List[CommandSpec]:
     if not connected:
         return list(SERVER_SELECTION_COMMANDS)
 
@@ -248,33 +239,28 @@ def derive_available_commands(
     if not joined:
         return list(PLAYER_JOIN_COMMANDS)
 
-    if state.finished:
-        return _with_optional_start(state)
-    if not state.started:
+    if state.finished or not state.started:
         return _with_optional_start(state)
     if not state.your_turn:
         return list(IN_GAME_EXIT_COMMANDS)
 
-    commands: List[str] = [PLAYER_TURN_COMMANDS[0]]
-
+    specs: List[CommandSpec] = [Commands.PLAY]
     if state.can_draw:
-        commands.append(PLAYER_TURN_COMMANDS[1])
+        specs.append(Commands.DRAW)
     if state.can_pass:
-        commands.append(PLAYER_TURN_COMMANDS[2])
+        specs.append(Commands.PASS)
     if state.uno_hint or uno_armed:
-        commands.append(PLAYER_TURN_COMMANDS[3])
-
-    commands.extend(IN_GAME_EXIT_COMMANDS)
-
-    return commands
+        specs.append(Commands.UNO)
+    specs.extend(IN_GAME_EXIT_COMMANDS)
+    return specs
 
 
-def _with_optional_start(state: GameSnapshot) -> List[str]:
+def _with_optional_start(state: GameSnapshot) -> List[CommandSpec]:
     """Return lobby/finished commands, optionally prefixed with host start."""
-    commands = list(ROOM_EXIT_COMMANDS)
+    specs = list(ROOM_EXIT_COMMANDS)
     if state.can_start:
-        commands.insert(0, START_COMMAND.template)
-    return commands
+        specs.insert(0, Commands.START)
+    return specs
 
 
 def command_template_candidate(template: str) -> Dict[str, str]:
@@ -334,7 +320,7 @@ class CommandController:
 
     async def execute(self, raw: str) -> None:
         """Parse raw input and surface syntax errors before dispatching commands."""
-        if self.server_history_active and raw.strip() in {"", SERVER_COMMAND.token}:
+        if self.server_history_active and raw.strip() in {"", Commands.SERVER.token}:
             await self.connect_selected_server_history()
             return
 
@@ -352,15 +338,14 @@ class CommandController:
         """Execute a parsed command while preserving the existing render/update hooks."""
         from tuno.client.actions import dispatch_command
 
+        spec = COMMAND_SPECS_BY_NAME[command.name]
+        is_bare_server = spec is Commands.SERVER and not command.args
         previous_uno_state = self.host.say_uno_next
-        if command.name not in {
-            HELP_COMMAND.name,
-            EXIT_COMMAND.name,
-            EXIT_SERVER_COMMAND.name,
-        } and not (command.name == SERVER_COMMAND.name and not command.args):
+
+        if spec.triggers_server_wait and not is_bare_server:
             self.set_pending_server_response()
 
-        if command.name == SERVER_COMMAND.name and not command.args:
+        if is_bare_server:
             self.show_server_history()
         else:
             self.server_history_active = False
@@ -381,8 +366,8 @@ class CommandController:
                 render_state=self.host.render_state,
             )
 
-        if command.name == HELP_COMMAND.name or (
-            command.name == UNO_COMMAND.name and self.host.say_uno_next != previous_uno_state
+        if spec is Commands.HELP or (
+            spec is Commands.UNO and self.host.say_uno_next != previous_uno_state
         ):
             self.host.render_state()
 
@@ -434,8 +419,8 @@ class CommandController:
         return command_candidates(
             raw,
             available_commands=self.available_commands(),
-            card_command_token=PLAY_COMMAND.token,
-            connect_command_token=CONNECT_COMMAND.token,
+            card_command_token=Commands.PLAY.token,
+            connect_command_token=Commands.CONNECT.token,
             command_template_candidate=command_template_candidate,
             valid_play_colors=VALID_PLAY_COLORS,
             hand=my_hand(self.host.state),
@@ -464,7 +449,7 @@ class CommandController:
         if (
             self.server_history_active
             and raw.strip()
-            and not matches_command_token(raw.strip(), SERVER_COMMAND)
+            and not matches_command_token(raw.strip(), Commands.SERVER)
         ):
             self.server_history_active = False
             self.completion_state = CompletionState()
@@ -534,14 +519,16 @@ class CommandController:
         """Show the selectable server history list after a bare server command."""
         if not self.host.server_history:
             self.server_history_active = False
-            self.set_feedback(COMMAND_MESSAGES.no_server_history.format(usage=SERVER_COMMAND.usage))
+            self.set_feedback(
+                COMMAND_MESSAGES.no_server_history.format(usage=Commands.SERVER.template)
+            )
             return
 
         self.server_history_active = True
 
         self.completion_state = CompletionState()
         command_input = self.host.query_one("#command-input", Input)
-        command_input.value = f"{SERVER_COMMAND.token} "
+        command_input.value = f"{Commands.SERVER.token} "
         command_input.cursor_position = len(command_input.value)
         command_input.focus()
 
@@ -552,11 +539,13 @@ class CommandController:
         candidates = self._server_history_candidates("") or []
         if not candidates:
             self.server_history_active = False
-            self.set_feedback(COMMAND_MESSAGES.no_server_history.format(usage=SERVER_COMMAND.usage))
+            self.set_feedback(
+                COMMAND_MESSAGES.no_server_history.format(usage=Commands.SERVER.template)
+            )
             return
 
         index = min(self.completion_state.suggestion_index, len(candidates) - 1)
-        target = candidates[index]["insert"].removeprefix(f"{SERVER_COMMAND.token} ").strip()
+        target = candidates[index]["insert"].removeprefix(f"{Commands.SERVER.token} ").strip()
         self.server_history_active = False
         self.completion_state = CompletionState()
         await self.host.connect_server(target)
@@ -564,10 +553,10 @@ class CommandController:
     def _server_history_candidates(self, raw: str) -> List[Dict[str, str]] | None:
         """Return server-history candidates when the command bar is in server mode."""
         text = raw.strip()
-        if not self.server_history_active and not matches_command_token(text, SERVER_COMMAND):
+        if not self.server_history_active and not matches_command_token(text, Commands.SERVER):
             return None
 
-        if matches_command_token(text, SERVER_COMMAND):
+        if matches_command_token(text, Commands.SERVER):
             parts = text.split(maxsplit=1)
             if len(parts) == 1 and not (raw.endswith(" ") or self.server_history_active):
                 return None
@@ -578,14 +567,14 @@ class CommandController:
             return None
 
         return [
-            {"insert": f"{SERVER_COMMAND.token} {url}", "display": url}
+            {"insert": f"{Commands.SERVER.token} {url}", "display": url}
             for url in self.host.server_history
             if url.startswith(prefix)
         ]
 
     def _default_meta_text(self) -> str:
         if self.host.api is None:
-            return f"Connect to a server: {SERVER_COMMAND.template}"
+            return f"Connect to a server: {Commands.SERVER.template}"
         if self.host.selected_room_name is None:
-            return f"Choose a room: {CONNECT_COMMAND.template} or {CREATE_ROOM_COMMAND.template}"
-        return f"Join the game: {JOIN_PLAYER_COMMAND.template}"
+            return f"Choose a room: {Commands.CONNECT.template} or {Commands.CREATE.template}"
+        return f"Join the game: {Commands.JOIN.template}"

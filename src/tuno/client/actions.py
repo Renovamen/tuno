@@ -7,7 +7,7 @@ from typing import Any, Awaitable, Callable, Dict, Optional
 
 from tuno.client.state import my_hand
 from tuno.client.tui import commands as command_defs
-from tuno.client.tui.commands import COMMAND_MESSAGES, PLAY_COMMAND, ParsedCommand
+from tuno.client.tui.commands import COMMAND_MESSAGES, Commands, ParsedCommand
 from tuno.core.cards import Card, Color
 from tuno.core.snapshot import GameSnapshot
 
@@ -76,20 +76,20 @@ async def dispatch_command(
         render_state=render_state,
     )
     handlers: Dict[Any, CommandHandler] = {
-        command_defs.SERVER_COMMAND: _dispatch_server,
-        command_defs.CONNECT_COMMAND: _dispatch_connect_room,
-        command_defs.CREATE_ROOM_COMMAND: _dispatch_create_room,
-        command_defs.JOIN_PLAYER_COMMAND: _dispatch_join_player,
-        command_defs.START_COMMAND: _dispatch_start,
-        command_defs.PLAY_COMMAND: _dispatch_play,
-        command_defs.DRAW_COMMAND: _dispatch_draw,
-        command_defs.PASS_COMMAND: _dispatch_pass,
-        command_defs.UNO_COMMAND: _dispatch_uno,
-        command_defs.EXIT_GAME_COMMAND: _dispatch_exit_game,
-        command_defs.EXIT_ROOM_COMMAND: _dispatch_exit_room,
-        command_defs.HELP_COMMAND: _dispatch_help,
-        command_defs.EXIT_SERVER_COMMAND: _dispatch_exit_server,
-        command_defs.EXIT_COMMAND: _dispatch_exit,
+        Commands.SERVER: _dispatch_server,
+        Commands.CONNECT: _dispatch_connect_room,
+        Commands.CREATE: _dispatch_create_room,
+        Commands.JOIN: _dispatch_join_player,
+        Commands.START: _dispatch_start,
+        Commands.PLAY: _dispatch_play,
+        Commands.DRAW: _dispatch_draw,
+        Commands.PASS: _dispatch_pass,
+        Commands.UNO: _dispatch_uno,
+        Commands.EXIT_GAME: _dispatch_exit_game,
+        Commands.EXIT_ROOM: _dispatch_exit_room,
+        Commands.HELP: _dispatch_help,
+        Commands.EXIT_SERVER: _dispatch_exit_server,
+        Commands.EXIT: _dispatch_exit,
     }
 
     spec = command_defs.COMMAND_SPECS_BY_NAME.get(command.name)
@@ -133,7 +133,7 @@ async def _dispatch_play(command: ParsedCommand, context: CommandDispatchContext
         send=context.send,
         set_command_feedback=context.set_command_feedback,
         render_state=context.render_state,
-        play_command_token=PLAY_COMMAND.token,
+        play_command_token=Commands.PLAY.token,
     )
 
 
@@ -223,7 +223,7 @@ async def play_card_by_number(
 def _play_command_token(play_command_token: Optional[str]) -> str:
     if play_command_token is not None:
         return play_command_token
-    return PLAY_COMMAND.token
+    return Commands.PLAY.token
 
 
 def _validate_positive_display_number(

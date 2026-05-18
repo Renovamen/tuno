@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from tuno.client.tui.commands import CONNECT_COMMAND, PLAY_COMMAND, VALID_PLAY_COLORS
+from tuno.client.tui.commands import VALID_PLAY_COLORS, Commands
 from tuno.client.tui.completion import (
     CompletionState,
     apply_completion,
@@ -62,7 +62,7 @@ class ClientCompletionTests(unittest.TestCase):
         candidates = command_candidates(
             "/play ",
             available_commands=["/play <n> [color]", "/draw", "/help"],
-            card_command_token=PLAY_COMMAND.token,
+            card_command_token=Commands.PLAY.token,
             valid_play_colors=VALID_PLAY_COLORS,
             hand=[
                 {"color": None, "rank": "wild"},
@@ -77,7 +77,7 @@ class ClientCompletionTests(unittest.TestCase):
         candidates = command_candidates(
             "/connect ",
             available_commands=["/connect <room>", "/create <room>", "/help"],
-            connect_command_token=CONNECT_COMMAND.token,
+            connect_command_token=Commands.CONNECT.token,
             hand=[],
             rooms=[
                 {"name": "main", "status": "Lobby", "player_count": 1},
@@ -97,7 +97,7 @@ class ClientCompletionTests(unittest.TestCase):
         candidates = command_candidates(
             "/connect ma",
             available_commands=["/connect <room>", "/create <room>", "/help"],
-            connect_command_token=CONNECT_COMMAND.token,
+            connect_command_token=Commands.CONNECT.token,
             hand=[],
             rooms=[
                 {"name": "main"},
