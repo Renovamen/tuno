@@ -8,6 +8,7 @@ import subprocess
 import tempfile
 from urllib.request import Request, urlopen
 
+from tuno.client.tls import build_client_ssl_context
 from tuno.client.updates import fetch_latest_release_version, is_newer_version, normalize_version
 
 INSTALL_SCRIPT_URL = "https://raw.githubusercontent.com/Renovamen/tuno/HEAD/scripts/install.sh"
@@ -16,7 +17,7 @@ INSTALL_SCRIPT_URL = "https://raw.githubusercontent.com/Renovamen/tuno/HEAD/scri
 def fetch_install_script(timeout: float = 10.0) -> str:
     """Download the installer script used by `tuno update`."""
     request = Request(INSTALL_SCRIPT_URL, headers={"User-Agent": "tuno-client"})
-    with urlopen(request, timeout=timeout) as response:
+    with urlopen(request, timeout=timeout, context=build_client_ssl_context()) as response:
         return response.read().decode("utf-8")
 
 

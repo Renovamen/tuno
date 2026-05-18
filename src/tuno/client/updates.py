@@ -6,6 +6,8 @@ import json
 import re
 from urllib.request import Request, urlopen
 
+from tuno.client.tls import build_client_ssl_context
+
 LATEST_RELEASE_URL = "https://api.github.com/repos/Renovamen/tuno/releases/latest"
 
 
@@ -18,7 +20,7 @@ def fetch_latest_release_version(timeout: float = 5.0) -> str | None:
             "User-Agent": "tuno-client",
         },
     )
-    with urlopen(request, timeout=timeout) as response:
+    with urlopen(request, timeout=timeout, context=build_client_ssl_context()) as response:
         payload = json.load(response)
 
     tag = payload.get("tag_name")

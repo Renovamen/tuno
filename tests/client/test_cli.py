@@ -94,6 +94,24 @@ class ClientSelfUpdateCommandTests(unittest.TestCase):
         fetch_install_script.assert_not_called()
         run_install_script.assert_not_called()
 
+    @patch("tuno.client.cli.update.urlopen")
+    @patch("tuno.client.cli.update.build_client_ssl_context")
+    def test_fetch_install_script_uses_client_ssl_context(
+        self, build_ssl_context: Mock, urlopen: Mock
+    ) -> None:
+        from tuno.client.cli.update import fetch_install_script
+
+        ssl_context = object()
+        build_ssl_context.return_value = ssl_context
+        urlopen.return_value.__enter__.return_value.read.return_value = b"echo install"
+
+        script = fetch_install_script(timeout=3.0)
+
+        self.assertEqual(script, "echo install")
+        urlopen.assert_called_once()
+        self.assertEqual(urlopen.call_args.kwargs["timeout"], 3.0)
+        self.assertIs(urlopen.call_args.kwargs["context"], ssl_context)
+
 
 class ClientUninstallCommandTests(unittest.TestCase):
     """Cover file removal behavior for the `tuno uninstall` command."""
