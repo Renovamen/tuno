@@ -31,7 +31,6 @@ class CommandMessages:
     not_connected: str = "Command error: Not connected to a server."
     room_first: str = "Command error: Connect to a room first with /connect <room>."
     join_first: str = "Command error: Join the game first with /join <player_name>."
-    exit_game_active_only: str = "Command error: /exit_game is only allowed during an active game."
     connect_first: str = "Command error: Connect first."
 
     # Status updates
@@ -155,7 +154,7 @@ ROOM_EXIT_COMMANDS: tuple[CommandSpec, ...] = (
     Commands.EXIT_SERVER,
     Commands.EXIT,
 )
-IN_GAME_EXIT_COMMANDS: tuple[CommandSpec, ...] = (
+JOINED_EXIT_COMMANDS: tuple[CommandSpec, ...] = (
     Commands.HELP,
     Commands.EXIT_GAME,
     Commands.EXIT_ROOM,
@@ -239,7 +238,7 @@ def _derive_available_specs(
     if state.finished or not state.started:
         return _with_optional_start(state)
     if not state.your_turn:
-        return list(IN_GAME_EXIT_COMMANDS)
+        return list(JOINED_EXIT_COMMANDS)
 
     specs: List[CommandSpec] = [Commands.PLAY]
     if state.can_draw:
@@ -248,13 +247,13 @@ def _derive_available_specs(
         specs.append(Commands.PASS)
     if state.uno_hint or uno_armed:
         specs.append(Commands.UNO)
-    specs.extend(IN_GAME_EXIT_COMMANDS)
+    specs.extend(JOINED_EXIT_COMMANDS)
     return specs
 
 
 def _with_optional_start(state: GameSnapshot) -> List[CommandSpec]:
     """Return lobby/finished commands, optionally prefixed with host start."""
-    specs = list(ROOM_EXIT_COMMANDS)
+    specs = list(JOINED_EXIT_COMMANDS)
     if state.can_start:
         specs.insert(0, Commands.START)
     return specs

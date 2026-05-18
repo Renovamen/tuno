@@ -227,21 +227,20 @@ class ClientRuntimeTests(unittest.IsolatedAsyncioTestCase):
         self.assertIs(runtime.api, api)
         self.assertFalse(api.closed)
 
-    async def test_exit_game_rejected_outside_active_round(self) -> None:
-        """Reject /exit_game in the lobby or after the round has finished."""
+    async def test_exit_game_allowed_in_lobby_drops_to_spectator(self) -> None:
+        """Allow /exit_game before the round starts so the player becomes a spectator."""
         callbacks = RuntimeCallbacks()
         runtime = self.build_runtime(callbacks)
         api = FakeApi()
         runtime.api = api  # type: ignore[assignment]
         runtime.selected_room_name = "main"
         runtime.player_id = "p1"
-        runtime.state = GameSnapshot(started=True, finished=True)
+        runtime.state = GameSnapshot(started=False, finished=False)
 
         await runtime.exit_game()
 
-        self.assertEqual(
-            callbacks.feedback[-1],
-            "Command error: /exit_game is only allowed during an active game.",
-        )
-        self.assertEqual(runtime.player_id, "p1")
-        self.assertFalse(hasattr(api, "sent"))
+        self.assertEqual(api.sent, (ClientMsg.LEAVE, {}))
+        self.assertIsNone(runtime.player_id)
+        self.assertEqual(runtime.selected_room_name, "main")
+        self.assertIs(runtime.api, api)
+        self.assertFalse(api.closed)

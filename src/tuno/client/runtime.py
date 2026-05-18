@@ -198,7 +198,7 @@ class ClientRuntime:
         self._set_feedback(CommandMessages.disconnected)
 
     async def exit_game(self) -> None:
-        """Leave the active round while keeping the room connection for spectating."""
+        """Leave the player slot while keeping the room connection for spectating."""
         if self.api is None:
             self._set_feedback(CommandMessages.not_connected)
             return
@@ -207,9 +207,6 @@ class ClientRuntime:
             return
         if self.player_id is None:
             self._set_feedback(CommandMessages.join_first)
-            return
-        if not self.state.started or self.state.finished:
-            self._set_feedback(CommandMessages.exit_game_active_only)
             return
 
         try:

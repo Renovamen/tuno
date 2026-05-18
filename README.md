@@ -87,7 +87,7 @@ tuno
 - `/uno`: Arm UNO for your next play.
 
 **Exit:**
-- `/exit_game`: Leave the active round and stay in the room as a spectator.
+- `/exit_game`: Leave the round and stay in the room as a spectator.
 - `/exit_room`: Leave the room and return to the room list.
 - `/exit_server`: Disconnect from the current server (and leave the room).
 - `/exit`: Quit Tuno.

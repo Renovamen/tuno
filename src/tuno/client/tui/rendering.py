@@ -20,13 +20,13 @@ _IMPORTANT_ACTIVITY_SUFFIXES = (
 )
 
 
-def role_label(state: GameSnapshot) -> str:
+def role_label(state: GameSnapshot, *, in_room: bool) -> str:
     """Derive the local player's lobby/game role label from a snapshot."""
     your_id = state.your_player_id
     host_id = state.host_player_id
 
     if not your_id:
-        return "not joined"
+        return "spectator" if in_room else "not joined"
     if your_id == host_id:
         return "host"
 
@@ -135,7 +135,7 @@ def render_local_status_body(state: GameSnapshot, *, room_name: Optional[str]) -
     room_label = escape(room_name or "?")
     return "\n".join(
         [
-            f"[bold]Name:[/] {player_name} ({role_label(state)})",
+            f"[bold]Name:[/] {player_name} ({role_label(state, in_room=bool(room_name))})",
             f"[bold]Room:[/] {room_label} ({_phase_label(state)})",
         ]
     )

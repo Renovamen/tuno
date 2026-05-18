@@ -97,7 +97,9 @@ class AvailableCommandsTests(unittest.TestCase):
             joined=True,
             uno_armed=False,
         )
-        self.assertEqual(cmds, ["/start", "/help", "/exit_room", "/exit_server", "/exit"])
+        self.assertEqual(
+            cmds, ["/start", "/help", "/exit_game", "/exit_room", "/exit_server", "/exit"]
+        )
 
     def test_lobby_non_host_help(self) -> None:
         """Hide `/start` from lobby players who are not allowed to start."""
@@ -108,7 +110,7 @@ class AvailableCommandsTests(unittest.TestCase):
             joined=True,
             uno_armed=False,
         )
-        self.assertEqual(cmds, ["/help", "/exit_room", "/exit_server", "/exit"])
+        self.assertEqual(cmds, ["/help", "/exit_game", "/exit_room", "/exit_server", "/exit"])
 
     def test_game_your_turn_help(self) -> None:
         """Show only the legal turn actions for the current player."""
@@ -162,7 +164,9 @@ class AvailableCommandsTests(unittest.TestCase):
             joined=True,
             uno_armed=False,
         )
-        self.assertEqual(cmds, ["/start", "/help", "/exit_room", "/exit_server", "/exit"])
+        self.assertEqual(
+            cmds, ["/start", "/help", "/exit_game", "/exit_room", "/exit_server", "/exit"]
+        )
 
     def test_finished_non_host_hides_restart(self) -> None:
         """Do not expose `/start` to non-host players after a finished round."""
@@ -173,4 +177,4 @@ class AvailableCommandsTests(unittest.TestCase):
             joined=True,
             uno_armed=False,
         )
-        self.assertEqual(cmds, ["/help", "/exit_room", "/exit_server", "/exit"])
+        self.assertEqual(cmds, ["/help", "/exit_game", "/exit_room", "/exit_server", "/exit"])

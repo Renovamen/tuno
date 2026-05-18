@@ -66,7 +66,7 @@ def build_view_state(
     return ClientViewState(
         border_title=f"Tuno v{app_version} ({server_target})",
         local_status_body=render_local_status_body(state, room_name=selected_room_name),
-        hand_visible=bool(state.started and not state.finished),
+        hand_visible=bool(state.started and not state.finished and player_id is not None),
         hand_body=render_hand_body(state, say_uno_next=say_uno_next),
         players_title=render_rooms_title(rooms)
         if room_lobby_visible
