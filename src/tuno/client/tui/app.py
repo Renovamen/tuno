@@ -175,9 +175,9 @@ class TunoApp(App):
     def _compose_right_panel(self) -> ComposeResult:
         with Vertical(id="right-panel"):
             with Vertical(id="right-panel-sections"):
-                yield Static("Players (0/5)", id="players-title", classes="section-title")
+                yield Static("History Servers (0)", id="right-list-title", classes="section-title")
                 yield Static("", classes="section-divider")
-                yield Static("No players yet.", id="players-body")
+                yield Static("No history servers.", id="right-list-body")
 
                 yield Static("", classes="section-gap")
 
@@ -341,6 +341,7 @@ class TunoApp(App):
             server_target=server_target,
             state=self.state,
             rooms=self.rooms,
+            server_history=self.server_history,
             connected=self.api is not None,
             room_selected=self.selected_room_name is not None,
             selected_room_name=self.selected_room_name,
@@ -352,7 +353,7 @@ class TunoApp(App):
         self.query_one("#main-frame").border_title = view_state.border_title
         self._render_logo()
         self._render_local_status(view_state)
-        self._render_players(view_state)
+        self._render_right_list(view_state)
         self._render_recent_activity(view_state)
         self._render_command_area(view_state)
         self._render_update_notice()
@@ -375,9 +376,9 @@ class TunoApp(App):
             view_state.hand_body if view_state.hand_visible else ""
         )
 
-    def _render_players(self, view_state: ClientViewState) -> None:
-        self.query_one("#players-title", Static).update(view_state.players_title)
-        self.query_one("#players-body", Static).update(view_state.players_body)
+    def _render_right_list(self, view_state: ClientViewState) -> None:
+        self.query_one("#right-list-title", Static).update(view_state.right_list_title)
+        self.query_one("#right-list-body", Static).update(view_state.right_list_body)
 
     def _render_recent_activity(self, view_state: ClientViewState) -> None:
         recent_activity_section = self.query_one("#recent-activity-section", Vertical)

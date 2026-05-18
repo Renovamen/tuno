@@ -199,6 +199,31 @@ def render_rooms_body(rooms: Iterable[Dict[str, Any]]) -> RenderableType:
     return table
 
 
+def render_server_history_title(server_history: Sequence[str]) -> str:
+    """Render the dynamic server-history section title."""
+    return f"History Servers ({len(server_history)})"
+
+
+def render_server_history_body(server_history: Iterable[str]) -> RenderableType:
+    """Render remembered servers with width-aware URL truncation."""
+    servers = list(server_history)
+    if not servers:
+        return "No history servers."
+
+    table = Table(
+        box=None,
+        padding=(0, 0, 0, 0),
+        show_header=False,
+        expand=True,
+    )
+    table.add_column("Server", no_wrap=True, overflow="ellipsis", ratio=1)
+
+    for server in servers:
+        table.add_row(escape(server))
+
+    return table
+
+
 def render_top_card_body(state: GameSnapshot) -> str:
     """Render the standalone top-card line shown above recent activity items."""
     top = state.top_card or {}
