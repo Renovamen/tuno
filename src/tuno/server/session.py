@@ -10,7 +10,7 @@ from tuno.core.game import GameError, GameState
 from tuno.protocol.messages import encode_message
 from tuno.server.actions import apply_action
 from tuno.server.rooms import (
-    ROOM_MESSAGES,
+    RoomMessages,
     room_list_from_states,
     validate_room_selection_payload,
 )
@@ -60,7 +60,7 @@ class GameSession:
 
     async def send_initial_state(self, websocket: object) -> None:
         """Send the first info/state payloads for an already registered websocket."""
-        await self._send(websocket, "info", message=ROOM_MESSAGES.connected_join)
+        await self._send(websocket, "info", message=RoomMessages.connected_join)
         await self._broadcast_state()
 
     async def detach(self, websocket: object) -> None:
@@ -120,7 +120,7 @@ class RoomServer:
     async def attach(self, websocket: object) -> bool:
         """Register a websocket in room-selection mode."""
         self.connections[websocket] = RoomConnection(websocket=websocket)
-        await self._send(websocket, "info", message=ROOM_MESSAGES.connected_choose)
+        await self._send(websocket, "info", message=RoomMessages.connected_choose)
         await self._send_room_list(websocket)
         return True
 
@@ -154,7 +154,7 @@ class RoomServer:
         session = self.rooms.get(connection.room_name)
         if session is None:
             connection.room_name = None
-            await self._send(websocket, "info", message=ROOM_MESSAGES.closed)
+            await self._send(websocket, "info", message=RoomMessages.closed)
             await self._send_room_list(websocket)
             return
 
@@ -174,21 +174,21 @@ class RoomServer:
         async with self._lock:
             if kind == "create_room":
                 if room_name in self.rooms:
-                    await self._send(websocket, "error", message=ROOM_MESSAGES.name_exists)
+                    await self._send(websocket, "error", message=RoomMessages.name_exists)
                     return
                 if len(self.rooms) >= self.MAX_ROOMS:
-                    await self._send(websocket, "error", message=ROOM_MESSAGES.too_many)
+                    await self._send(websocket, "error", message=RoomMessages.too_many)
                     return
                 self.rooms[room_name] = GameSession()
             elif room_name not in self.rooms:
-                await self._send(websocket, "error", message=ROOM_MESSAGES.not_found)
+                await self._send(websocket, "error", message=RoomMessages.not_found)
                 return
 
             session = self.rooms[room_name]
             if len(session.connections) >= session.MAX_CONNECTIONS:
                 if kind == "create_room" and not session.connections:
                     self.rooms.pop(room_name, None)
-                await self._send(websocket, "error", message=ROOM_MESSAGES.at_capacity)
+                await self._send(websocket, "error", message=RoomMessages.at_capacity)
                 close = getattr(websocket, "close", None)
                 if callable(close):
                     await close()
@@ -205,7 +205,7 @@ class RoomServer:
         """Return one websocket to room-selection mode without closing it."""
         room_name = connection.room_name
         if room_name is None:
-            await self._send(websocket, "error", message=ROOM_MESSAGES.choose_first)
+            await self._send(websocket, "error", message=RoomMessages.choose_first)
             return
 
         session = self.rooms.get(room_name)
@@ -214,7 +214,7 @@ class RoomServer:
             await session.detach(websocket)
             await self._delete_room_if_empty(room_name)
 
-        await self._send(websocket, "room_left", message=ROOM_MESSAGES.left)
+        await self._send(websocket, "room_left", message=RoomMessages.left)
         await self._send_room_list(websocket)
         await self._broadcast_room_list()
 
@@ -231,7 +231,7 @@ class RoomServer:
                 await self._send(
                     connection.websocket,
                     "room_closed",
-                    message=ROOM_MESSAGES.closed,
+                    message=RoomMessages.closed,
                 )
                 await self._send_room_list(connection.websocket)
 

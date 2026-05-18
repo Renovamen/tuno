@@ -18,7 +18,6 @@ from tuno.core.cards import Color
 from tuno.core.snapshot import GameSnapshot
 
 
-@dataclass(frozen=True)
 class CommandMessages:
     """User-visible command-bar feedback strings shared by the runtime and controller."""
 
@@ -78,9 +77,6 @@ class CommandMessages:
         "Illegal play: that card number is not valid for your current hand."
     )
     server_error_fallback: str = "Error: {message}"
-
-
-COMMAND_MESSAGES = CommandMessages()
 
 
 class CommandError(ValueError):
@@ -329,7 +325,7 @@ class CommandController:
         try:
             command = parse_command(raw)
         except CommandError as exc:
-            self.set_feedback(COMMAND_MESSAGES.parse_error.format(error=exc))
+            self.set_feedback(CommandMessages.parse_error.format(error=exc))
             return
 
         await self.dispatch(command)
@@ -397,7 +393,7 @@ class CommandController:
     def set_pending_server_response(self) -> None:
         """Show a waiting hint after a valid command is sent to the server."""
         self.awaiting_server_response = True
-        self.command_feedback_message = COMMAND_MESSAGES.waiting_response
+        self.command_feedback_message = CommandMessages.waiting_response
         self.host.render_state()
 
     def available_commands(self) -> List[str]:
@@ -520,7 +516,7 @@ class CommandController:
         if not self.host.server_history:
             self.server_history_active = False
             self.set_feedback(
-                COMMAND_MESSAGES.no_server_history.format(usage=Commands.SERVER.template)
+                CommandMessages.no_server_history.format(usage=Commands.SERVER.template)
             )
             return
 
@@ -532,7 +528,7 @@ class CommandController:
         command_input.cursor_position = len(command_input.value)
         command_input.focus()
 
-        self.set_feedback(COMMAND_MESSAGES.select_server_hint)
+        self.set_feedback(CommandMessages.select_server_hint)
 
     async def connect_selected_server_history(self) -> None:
         """Connect to the currently selected server history entry."""
@@ -540,7 +536,7 @@ class CommandController:
         if not candidates:
             self.server_history_active = False
             self.set_feedback(
-                COMMAND_MESSAGES.no_server_history.format(usage=Commands.SERVER.template)
+                CommandMessages.no_server_history.format(usage=Commands.SERVER.template)
             )
             return
 

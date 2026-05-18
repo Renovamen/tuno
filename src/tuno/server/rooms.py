@@ -10,7 +10,6 @@ from tuno.core.game import MAX_PLAYERS, GameState
 RoomCommand = Literal["create_room", "join_room"]
 
 
-@dataclass(frozen=True)
 class RoomMessages:
     """User-visible room protocol messages shared by server runtimes."""
 
@@ -24,9 +23,6 @@ class RoomMessages:
     left: str = "Left room. Choose another room."
     connected_choose: str = "Connected. Choose a room."
     connected_join: str = "Connected. Join with your player name."
-
-
-ROOM_MESSAGES = RoomMessages()
 
 
 @dataclass(frozen=True)
@@ -71,10 +67,10 @@ def validate_room_selection_payload(payload: dict) -> RoomSelectionValidation:
     """Validate only room command type and name presence, leaving lifecycle local."""
     command = payload["type"]
     if command not in {"create_room", "join_room"}:
-        return RoomSelectionValidation(None, "", ROOM_MESSAGES.choose_first)
+        return RoomSelectionValidation(None, "", RoomMessages.choose_first)
 
     room_name = normalize_room_name(payload.get("name", ""))
     if not room_name:
-        return RoomSelectionValidation(command, room_name, ROOM_MESSAGES.name_required)
+        return RoomSelectionValidation(command, room_name, RoomMessages.name_required)
 
     return RoomSelectionValidation(command, room_name, None)

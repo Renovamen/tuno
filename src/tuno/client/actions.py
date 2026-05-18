@@ -7,7 +7,7 @@ from typing import Any, Awaitable, Callable, Dict, Optional
 
 from tuno.client.state import my_hand
 from tuno.client.tui import commands as command_defs
-from tuno.client.tui.commands import COMMAND_MESSAGES, Commands, ParsedCommand
+from tuno.client.tui.commands import CommandMessages, Commands, ParsedCommand
 from tuno.core.cards import Card, Color
 from tuno.core.snapshot import GameSnapshot
 
@@ -233,7 +233,7 @@ def _validate_positive_display_number(
         return True
 
     set_command_feedback(
-        COMMAND_MESSAGES.play_requires_positive_number.format(token=play_command_token)
+        CommandMessages.play_requires_positive_number.format(token=play_command_token)
     )
     return False
 
@@ -246,7 +246,7 @@ def _select_displayed_card(
     if hand_index < len(player_hand):
         return hand_index, player_hand[hand_index]
 
-    set_command_feedback(COMMAND_MESSAGES.play_out_of_range.format(number=display_number))
+    set_command_feedback(CommandMessages.play_out_of_range.format(number=display_number))
     return None
 
 
@@ -269,7 +269,7 @@ def _validate_play_choice(
         and card.get("rank") != top_card.get("rank")
     ):
         set_command_feedback(
-            COMMAND_MESSAGES.play_card_mismatch.format(
+            CommandMessages.play_card_mismatch.format(
                 card=Card.from_dict(card).short_label(),
                 color=current_color,
                 top=Card.from_dict(top_card).short_label(),
@@ -285,5 +285,5 @@ def _validate_wild_choice(
     if Color.parse(chosen_color) is not None:
         return True
 
-    set_command_feedback(COMMAND_MESSAGES.play_wild_requires_color.format(token=play_command_token))
+    set_command_feedback(CommandMessages.play_wild_requires_color.format(token=play_command_token))
     return False

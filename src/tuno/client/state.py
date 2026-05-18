@@ -18,7 +18,7 @@ def my_hand(state: GameSnapshot) -> List[Dict[str, Any]]:
 
 def format_server_error(state: GameSnapshot, message: str, code: str = "") -> str:
     """Translate server error payloads into client-facing, context-rich text."""
-    from tuno.client.tui.commands import COMMAND_MESSAGES
+    from tuno.client.tui.commands import CommandMessages
 
     top_card = state.top_card or {}
     top_label = Card.from_dict(top_card).short_label() if top_card else "-"
@@ -26,12 +26,12 @@ def format_server_error(state: GameSnapshot, message: str, code: str = "") -> st
 
     match code:
         case "illegal_play":
-            return COMMAND_MESSAGES.server_illegal_play.format(color=current_color, top=top_label)
+            return CommandMessages.server_illegal_play.format(color=current_color, top=top_label)
         case "wild_needs_color":
-            return COMMAND_MESSAGES.server_wild_needs_color
+            return CommandMessages.server_wild_needs_color
         case "wild_draw_four_restricted":
-            return COMMAND_MESSAGES.server_wild_draw_four_restricted.format(color=current_color)
+            return CommandMessages.server_wild_draw_four_restricted.format(color=current_color)
         case "invalid_selection":
-            return COMMAND_MESSAGES.server_invalid_selection
+            return CommandMessages.server_invalid_selection
         case _:
-            return COMMAND_MESSAGES.server_error_fallback.format(message=message)
+            return CommandMessages.server_error_fallback.format(message=message)
