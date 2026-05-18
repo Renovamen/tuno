@@ -14,26 +14,34 @@ Tuno is a Python project for a terminal-based UNO game.
 - `src/tuno/server/worker.py`: Serverless Python Worker for Cloudflare deployment
 - `src/tests`: Unit tests, organized by module
 
-## Run
+## Setup
 
-Always use the conda environment `tuno` for development.
-
-Commonly used commands:
+Always use the project-local `uv` environment for development. When the environment needs to be updated from `pyproject.toml`, sync the required extras:
 
 ```bash
-python -m tuno.client # Start the client CLI
-python -m tuno.client --server <server> # Start the client CLI with a preconfigured server, so you do not need to enter it in the TUI
-python -m tuno.server --host 127.0.0.1 --port 8765 # Start the server with a specific host and port
+uv sync --extra dev # Add --extra worker or --extra build when needed
 ```
 
-Read `docs/DEVELOP.md` when you need commands for building, installing, or Worker development.
+## Run
+
+Run commands through `uv run`. Common commands:
+
+```bash
+uv run python -m tuno.client # Start the client CLI
+uv run python -m tuno.client --server <server> # Start the client CLI with a preconfigured server, so you do not need to enter it in the TUI
+
+uv run python -m tuno.server --host 127.0.0.1 --port 8765 # Start the server with a specific host and port
+uv run pywrangler dev # Start the Cloudflare Worker
+```
+
+Read `docs/DEVELOP.md` when you need commands for building, installing, or deploying the Worker.
 
 ## Tests
 
 ```bash
-python -m unittest discover -s tests -v # Run all unit tests
-python -m ruff check . # Run lint checks
-python -m ruff format --check . # Check formatting
+uv run python -m unittest discover -s tests -v # Run all unit tests
+uv run python -m ruff check . # Run lint checks
+uv run python -m ruff format --check . # Check formatting
 ```
 
 ## Code conventions

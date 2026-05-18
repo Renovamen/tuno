@@ -6,23 +6,25 @@
 git clone https://github.com/Renovamen/tuno.git
 cd tuno
 
-conda create -n tuno python=3.12
-conda activate tuno
-
-python -m pip install -e ".[dev]"
-export PYTHONPATH=src
+uv sync --extra dev
 ```
 
 For Cloudflare Worker development, install the worker extra as well:
 
 ```bash
-python -m pip install -e ".[dev,worker]"
+uv sync --extra dev,worker
 ```
 
 For client binary builds, install the build extra:
 
 ```bash
-python -m pip install -e ".[build]"
+uv sync --extra dev,build
+```
+
+If you change the local package version in `src/tuno/__init__.py`, refresh the editable package metadata so `importlib.metadata.version("tuno")` returns the new version:
+
+```bash
+uv sync --reinstall-package tuno
 ```
 
 &nbsp;
@@ -31,14 +33,14 @@ python -m pip install -e ".[build]"
 Start the server:
 
 ```bash
-python -m tuno.server --host 127.0.0.1 --port 8765
+uv run python -m tuno.server --host 127.0.0.1 --port 8765
 ```
 
 Start the client:
 
 ```bash
-python -m tuno.client
-python -m tuno.client --server ws://127.0.0.1:8765 # Start with a preconfigured server, so you do not need to enter it in the TUI
+uv run python -m tuno.client
+uv run python -m tuno.client --server ws://127.0.0.1:8765 # Start with a preconfigured server, so you do not need to enter it in the TUI
 ```
 
 &nbsp;
@@ -64,16 +66,16 @@ If you change the Durable Object class name or add more Durable Objects later, u
 ## Tests
 
 ```bash
-python -m unittest discover -s tests -v
+uv run python -m unittest discover -s tests -v
 ```
 
 &nbsp;
 ## Lint & Formatting
 
 ```bash
-python -m ruff check . # Run lint checks
-python -m ruff format --check . # Check formatting
-python -m ruff format .
+uv run python -m ruff check . # Run lint checks
+uv run python -m ruff format --check . # Check formatting
+uv run python -m ruff format .
 ```
 
 &nbsp;
@@ -82,6 +84,8 @@ python -m ruff format .
 ```bash
 ./scripts/build-client-binary.sh
 ```
+
+The build script runs PyInstaller through the locked uv project environment with the `build` extra enabled.
 
 The default output is `dist/tuno/`. The script also writes a local release archive and checksum to `release/`.
 

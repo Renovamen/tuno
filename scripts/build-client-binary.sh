@@ -29,6 +29,13 @@ require_file() {
   fi
 }
 
+# Run Python commands inside the locked uv project environment with the build
+# extra enabled. This keeps release builds independent of the caller's shell
+# environment while ensuring PyInstaller is installed from uv.lock.
+uv_run_build() {
+  uv run --locked --extra build -- "$@"
+}
+
 # Map the current OS and CPU architecture to the release artifact name used by
 # install scripts and GitHub release assets.
 detect_artifact() {
@@ -75,7 +82,7 @@ write_checksum() {
 # Move to the repo root and validate the local build prerequisites before
 # asking PyInstaller to analyze the application.
 cd "${ROOT_DIR}"
-require_command python
+require_command uv
 require_command tar
 require_file "${ENTRYPOINT_PATH}"
 require_file "${TUI_CSS_PATH}"
@@ -83,7 +90,7 @@ require_file "${TUI_CSS_PATH}"
 # PyInstaller needs the certifi CA bundle bundled explicitly so HTTPS requests
 # made by the frozen client can locate trusted roots consistently.
 mkdir -p "${SPEC_PATH}"
-CERTIFI_CACERT="$(python - <<'PY'
+CERTIFI_CACERT="$(uv_run_build python - <<'PY'
 import certifi
 print(certifi.where())
 PY
@@ -92,7 +99,7 @@ require_file "${CERTIFI_CACERT}"
 
 # Build the standalone app directory. The Textual CSS file lives inside the
 # tuno.client.tui package, so bundle it at the same package-relative path.
-python -m PyInstaller \
+uv_run_build python -m PyInstaller \
   --clean \
   --name tuno \
   --distpath "${DIST_PATH}" \

@@ -4,9 +4,11 @@
     "private": true,
     "scripts": {
         "bump": "uv run python scripts/bump_version.py",
-        "deploy": "uv run pywrangler deploy",
-        "dev": "uv run pywrangler dev",
+        "dev:client": "uv run python -m tuno.client",
+        "dev:worker": "uv run pywrangler dev",
+        "deploy:worker": "uv run pywrangler deploy",
+        "format": "uv run python -m ruff format .",
         "tag": "sh scripts/tag.sh",
-        "start": "uv run pywrangler dev"
+        "tests": "uv run python -m unittest discover -s tests -v"
     }
 }
