@@ -18,7 +18,13 @@ from workers import DurableObject, Response, WorkerEntrypoint
 
 from tuno.core.game import GameError, GameState
 from tuno.core.game_storage import deserialize_game, serialize_game
-from tuno.protocol.messages import MAX_MESSAGE_SIZE, ProtocolError, decode_client_message
+from tuno.protocol.messages import (
+    MAX_MESSAGE_SIZE,
+    ClientMsg,
+    ProtocolError,
+    ServerMsg,
+    decode_client_message,
+)
 from tuno.server.actions import apply_action
 from tuno.server.rooms import (
     RoomMessages,
@@ -83,7 +89,9 @@ class TunoLobby(DurableObject):
         self.ctx.acceptWebSocket(server_socket)
         server_socket.serializeAttachment(json.dumps({"room": "", "player_id": ""}))
 
-        self._send_json(server_socket, {"type": "info", "message": RoomMessages.connected_choose})
+        self._send_json(
+            server_socket, {"type": ServerMsg.INFO, "message": RoomMessages.connected_choose}
+        )
         await self._send_room_list(server_socket)
         return Response(status=101, web_socket=client_socket)
 
@@ -92,7 +100,7 @@ class TunoLobby(DurableObject):
         await self._ensure_loaded()
 
         if len(message) > MAX_MESSAGE_SIZE:
-            self._send_json(ws, {"type": "error", "message": "Message is too large."})
+            self._send_json(ws, {"type": ServerMsg.ERROR, "message": "Message is too large."})
             return
 
         try:
@@ -105,12 +113,12 @@ class TunoLobby(DurableObject):
             else:
                 await self._handle_room_action(ws, payload, attachment)
         except ProtocolError as exc:
-            self._send_json(ws, {"type": "error", "message": str(exc)})
+            self._send_json(ws, {"type": ServerMsg.ERROR, "message": str(exc)})
         except GameError as exc:
             self._send_json(
                 ws,
                 {
-                    "type": "error",
+                    "type": ServerMsg.ERROR,
                     "message": str(exc),
                     "code": exc.code or "",
                 },
@@ -156,29 +164,29 @@ class TunoLobby(DurableObject):
         """Create or join a room before the websocket can send game actions."""
         validation = validate_room_selection_payload(payload)
         if validation.error_message:
-            self._send_json(ws, {"type": "error", "message": validation.error_message})
+            self._send_json(ws, {"type": ServerMsg.ERROR, "message": validation.error_message})
             return
         kind = validation.command
         room_name = validation.room_name
 
-        if kind == "create_room":
+        if kind == ClientMsg.CREATE_ROOM:
             # Room names are the unique keys in the lobby's persisted room map.
             if room_name in self.rooms:
-                self._send_json(ws, {"type": "error", "message": RoomMessages.name_exists})
+                self._send_json(ws, {"type": ServerMsg.ERROR, "message": RoomMessages.name_exists})
                 return
             if len(self.rooms) >= self.MAX_ROOMS:
-                self._send_json(ws, {"type": "error", "message": RoomMessages.too_many})
+                self._send_json(ws, {"type": ServerMsg.ERROR, "message": RoomMessages.too_many})
                 return
             self.rooms[room_name] = GameState()
         elif room_name not in self.rooms:
-            self._send_json(ws, {"type": "error", "message": RoomMessages.not_found})
+            self._send_json(ws, {"type": ServerMsg.ERROR, "message": RoomMessages.not_found})
             return
 
         # Selecting a room does not create a player. The user still runs /join <name>
         # afterward, matching the standalone server flow.
         ws.serializeAttachment(json.dumps({"room": room_name, "player_id": ""}))
-        self._send_json(ws, {"type": "room_joined", "name": room_name})
-        self._send_json(ws, {"type": "info", "message": RoomMessages.connected_join})
+        self._send_json(ws, {"type": ServerMsg.ROOM_JOINED, "name": room_name})
+        self._send_json(ws, {"type": ServerMsg.INFO, "message": RoomMessages.connected_join})
         await self._send_state(ws)
 
     async def _handle_room_action(self, ws, payload: dict, attachment: dict) -> None:
@@ -189,11 +197,11 @@ class TunoLobby(DurableObject):
             # The room may have been deleted because everyone left. Return this socket to
             # room-selection mode instead of allowing it to keep sending game actions.
             ws.serializeAttachment(json.dumps({"room": "", "player_id": ""}))
-            self._send_json(ws, {"type": "info", "message": RoomMessages.closed})
+            self._send_json(ws, {"type": ServerMsg.INFO, "message": RoomMessages.closed})
             await self._send_room_list(ws)
             return
 
-        if payload["type"] == "exit_room":
+        if payload["type"] == ClientMsg.EXIT_ROOM:
             await self._exit_room(ws, room_name, game, attachment)
             return
 
@@ -202,10 +210,10 @@ class TunoLobby(DurableObject):
         # hibernation wake-ups can identify the same player.
         ws.serializeAttachment(json.dumps({"room": room_name, "player_id": result.player_id or ""}))
         if result.welcome_player_id:
-            self._send_json(ws, {"type": "welcome", "player_id": result.welcome_player_id})
+            self._send_json(ws, {"type": ServerMsg.WELCOME, "player_id": result.welcome_player_id})
 
         await self._broadcast_state(room_name)
-        if payload["type"] == "leave" and not game.players:
+        if payload["type"] == ClientMsg.LEAVE and not game.players:
             # A deliberate /leave by the last player closes the room immediately and
             # returns any remaining room sockets to the room list.
             await self._delete_room(room_name)
@@ -222,7 +230,7 @@ class TunoLobby(DurableObject):
                 pass
 
         ws.serializeAttachment(json.dumps({"room": "", "player_id": ""}))
-        self._send_json(ws, {"type": "room_left", "message": RoomMessages.left})
+        self._send_json(ws, {"type": ServerMsg.ROOM_LEFT, "message": RoomMessages.left})
         await self._send_room_list(ws)
         await self._broadcast_state(room_name)
         await self._delete_room_if_empty(room_name)
@@ -243,7 +251,7 @@ class TunoLobby(DurableObject):
         self._send_json(
             websocket,
             {
-                "type": "state",
+                "type": ServerMsg.STATE,
                 "state": game.snapshot_for(attachment.get("player_id") or None).to_dict(),
             },
         )
@@ -267,7 +275,7 @@ class TunoLobby(DurableObject):
             self._send_json(
                 websocket,
                 {
-                    "type": "room_closed",
+                    "type": ServerMsg.ROOM_CLOSED,
                     "message": RoomMessages.closed,
                 },
             )
@@ -281,7 +289,7 @@ class TunoLobby(DurableObject):
 
     async def _send_room_list(self, websocket) -> None:
         """Send the current public room list to one websocket."""
-        self._send_json(websocket, {"type": "room_list", "rooms": self._room_list()})
+        self._send_json(websocket, {"type": ServerMsg.ROOM_LIST, "rooms": self._room_list()})
 
     def _room_list(self) -> list[dict]:
         """Build sorted public room metadata for lobby clients."""

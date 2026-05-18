@@ -3,23 +3,27 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Awaitable, Callable, Dict, Optional
+from typing import Any, Awaitable, Callable, Dict, Optional, Protocol
 
 from tuno.client.state import my_hand
 from tuno.client.tui import commands as command_defs
 from tuno.client.tui.commands import CommandMessages, Commands, ParsedCommand
 from tuno.core.cards import Card, Color
 from tuno.core.snapshot import GameSnapshot
+from tuno.protocol.messages import ClientMsg
 
 ConnectFn = Callable[[Optional[str], Optional[str]], Awaitable[None]]
 ConnectServerFn = Callable[[str], Awaitable[None]]
 RoomFn = Callable[[str], Awaitable[None]]
-SendFn = Callable[[str], Awaitable[None]]
 ExitFn = Callable[[], Awaitable[None]]
 ExitServerFn = Callable[[], Awaitable[None]]
 ExitGameFn = Callable[[], Awaitable[None]]
 FeedbackFn = Callable[[str], None]
 RenderFn = Callable[[], None]
+
+
+class SendFn(Protocol):
+    async def __call__(self, kind: ClientMsg, **payload: Any) -> None: ...
 
 
 @dataclass(frozen=True)
@@ -31,7 +35,7 @@ class CommandDispatchContext:
     connect_server: ConnectServerFn
     join_room: RoomFn
     create_room: RoomFn
-    send: Callable[..., Awaitable[None]]
+    send: SendFn
     exit_client: ExitFn
     exit_server: ExitServerFn
     exit_game: ExitGameFn
@@ -52,7 +56,7 @@ async def dispatch_command(
     connect_server: ConnectServerFn,
     join_room: RoomFn,
     create_room: RoomFn,
-    send: Callable[..., Awaitable[None]],
+    send: SendFn,
     exit_client: ExitFn,
     exit_server: ExitServerFn,
     exit_game: ExitGameFn,
@@ -119,7 +123,7 @@ async def _dispatch_join_player(command: ParsedCommand, context: CommandDispatch
 
 
 async def _dispatch_start(command: ParsedCommand, context: CommandDispatchContext) -> bool:
-    await context.send("start")
+    await context.send(ClientMsg.START)
     return context.say_uno_next
 
 
@@ -138,18 +142,18 @@ async def _dispatch_play(command: ParsedCommand, context: CommandDispatchContext
 
 
 async def _dispatch_draw(command: ParsedCommand, context: CommandDispatchContext) -> bool:
-    await context.send("draw_card")
+    await context.send(ClientMsg.DRAW_CARD)
     return context.say_uno_next
 
 
 async def _dispatch_pass(command: ParsedCommand, context: CommandDispatchContext) -> bool:
-    await context.send("pass_turn")
+    await context.send(ClientMsg.PASS_TURN)
     return context.say_uno_next
 
 
 async def _dispatch_uno(command: ParsedCommand, context: CommandDispatchContext) -> bool:
     if not context.say_uno_next:
-        await context.send("set_uno", armed=True)
+        await context.send(ClientMsg.SET_UNO, armed=True)
     return True
 
 
@@ -159,7 +163,7 @@ async def _dispatch_exit_game(command: ParsedCommand, context: CommandDispatchCo
 
 
 async def _dispatch_exit_room(command: ParsedCommand, context: CommandDispatchContext) -> bool:
-    await context.send("exit_room")
+    await context.send(ClientMsg.EXIT_ROOM)
     return False
 
 
@@ -187,7 +191,7 @@ async def play_card_by_number(
     state: GameSnapshot,
     chosen_color: Optional[str],
     say_uno_next: bool,
-    send: Callable[..., Awaitable[None]],
+    send: SendFn,
     set_command_feedback: FeedbackFn,
     render_state: RenderFn,
     play_command_token: Optional[str] = None,
@@ -210,7 +214,7 @@ async def play_card_by_number(
         return say_uno_next
 
     await send(
-        "play_card",
+        ClientMsg.PLAY_CARD,
         hand_index=hand_index,
         chosen_color=chosen_color,
         say_uno=say_uno_next,

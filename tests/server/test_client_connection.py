@@ -17,6 +17,7 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 from tuno.client.api import ClientAPI
+from tuno.protocol.messages import ClientMsg
 from tuno.server.session import RoomServer
 from tuno.server.standalone import handler, run_server
 
@@ -69,11 +70,11 @@ class ServerClientConnectionTests(unittest.IsolatedAsyncioTestCase):
             info = await self.next_event_of_type(events, "info")
             self.assertEqual(info["type"], "info")
 
-            await api.send("create_room", name="main")
+            await api.send(ClientMsg.CREATE_ROOM, name="main")
             joined_room = await self.next_event_of_type(events, "room_joined")
             self.assertEqual(joined_room["name"], "main")
 
-            await api.send("join", name="alice")
+            await api.send(ClientMsg.JOIN, name="alice")
             welcome = await self.next_event_of_type(events, "welcome")
             self.assertEqual(welcome["type"], "welcome")
             self.assertTrue(welcome["player_id"])

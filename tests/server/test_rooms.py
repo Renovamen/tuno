@@ -11,6 +11,7 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
+from tuno.protocol.messages import ClientMsg
 from tuno.server.session import RoomServer
 
 OPEN_WEBSOCKET_STATE = 1
@@ -121,8 +122,8 @@ class RoomServerTests(unittest.IsolatedAsyncioTestCase):
         await server.attach(second)
 
         # Step 2: The first client creates/selects the room; the second collides by name.
-        await server.handle(first, {"type": "create_room", "name": "main"})
-        await server.handle(second, {"type": "create_room", "name": "main"})
+        await server.handle(first, {"type": ClientMsg.CREATE_ROOM.value, "name": "main"})
+        await server.handle(second, {"type": ClientMsg.CREATE_ROOM.value, "name": "main"})
 
         # Step 3: Only the first client should enter the room; the second gets an error.
         self.assertIn("main", server.rooms)
@@ -138,7 +139,7 @@ class RoomServerTests(unittest.IsolatedAsyncioTestCase):
 
         # Step 1: Attach one client and ask it to select an absent room.
         await server.attach(websocket)
-        await server.handle(websocket, {"type": "join_room", "name": "missing"})
+        await server.handle(websocket, {"type": ClientMsg.JOIN_ROOM.value, "name": "missing"})
 
         # Step 2: The client should remain in room-selection mode and receive an error.
         self.assertIsNone(server.connections[websocket].room_name)
@@ -152,12 +153,12 @@ class RoomServerTests(unittest.IsolatedAsyncioTestCase):
 
         # Step 1: Create a room and join its game as the only player.
         await server.attach(websocket)
-        await server.handle(websocket, {"type": "create_room", "name": "main"})
-        await server.handle(websocket, {"type": "join", "name": "alice"})
+        await server.handle(websocket, {"type": ClientMsg.CREATE_ROOM.value, "name": "main"})
+        await server.handle(websocket, {"type": ClientMsg.JOIN.value, "name": "alice"})
         self.assertIn("main", server.rooms)
 
         # Step 2: The player's normal game leave action should empty the room.
-        await server.handle(websocket, {"type": "leave"})
+        await server.handle(websocket, {"type": ClientMsg.LEAVE.value})
 
         # Step 3: Empty rooms are removed and the socket returns to the room list.
         self.assertNotIn("main", server.rooms)
@@ -173,12 +174,12 @@ class RoomServerTests(unittest.IsolatedAsyncioTestCase):
 
         # Step 1: Create a room and force its capacity down to the existing connection.
         await server.attach(first)
-        await server.handle(first, {"type": "create_room", "name": "main"})
+        await server.handle(first, {"type": ClientMsg.CREATE_ROOM.value, "name": "main"})
         server.rooms["main"].MAX_CONNECTIONS = 1
 
         # Step 2: A second client tries to select the full room.
         await server.attach(second)
-        await server.handle(second, {"type": "join_room", "name": "main"})
+        await server.handle(second, {"type": ClientMsg.JOIN_ROOM.value, "name": "main"})
 
         # Step 3: The second client must not receive room_joined and should be closed.
         self.assertIsNone(server.connections[second].room_name)
@@ -195,14 +196,14 @@ class RoomServerTests(unittest.IsolatedAsyncioTestCase):
 
         # Step 1: Put two players into the same room so it should survive one exit.
         await server.attach(first)
-        await server.handle(first, {"type": "create_room", "name": "main"})
-        await server.handle(first, {"type": "join", "name": "alice"})
+        await server.handle(first, {"type": ClientMsg.CREATE_ROOM.value, "name": "main"})
+        await server.handle(first, {"type": ClientMsg.JOIN.value, "name": "alice"})
         await server.attach(second)
-        await server.handle(second, {"type": "join_room", "name": "main"})
-        await server.handle(second, {"type": "join", "name": "bob"})
+        await server.handle(second, {"type": ClientMsg.JOIN_ROOM.value, "name": "main"})
+        await server.handle(second, {"type": ClientMsg.JOIN.value, "name": "bob"})
 
         # Step 2: The first socket leaves the room but keeps the server connection open.
-        await server.handle(first, {"type": "exit_room"})
+        await server.handle(first, {"type": ClientMsg.EXIT_ROOM.value})
 
         # Step 3: The room remains for Bob, while Alice returns to the room lobby.
         self.assertIn("main", server.rooms)
@@ -218,10 +219,10 @@ class RoomServerTests(unittest.IsolatedAsyncioTestCase):
 
         # Step 1: Create/select a room but do not add any other sockets to it.
         await server.attach(websocket)
-        await server.handle(websocket, {"type": "create_room", "name": "main"})
+        await server.handle(websocket, {"type": ClientMsg.CREATE_ROOM.value, "name": "main"})
 
         # Step 2: Leaving the selected room makes it empty.
-        await server.handle(websocket, {"type": "exit_room"})
+        await server.handle(websocket, {"type": ClientMsg.EXIT_ROOM.value})
 
         # Step 3: The room is removed and the socket is back in room-selection mode.
         self.assertNotIn("main", server.rooms)
@@ -278,7 +279,7 @@ class WorkerLobbyLifecycleTests(unittest.IsolatedAsyncioTestCase):
         lobby._loaded = True
 
         # Step 3: Alice exits the room through the Worker websocket message path.
-        await lobby.webSocketMessage(leaving, json.dumps({"type": "exit_room"}))
+        await lobby.webSocketMessage(leaving, json.dumps({"type": ClientMsg.EXIT_ROOM.value}))
 
         # Step 4: The room remains for Bob and Alice's socket returns to room lobby mode.
         self.assertIn("main", lobby.rooms)

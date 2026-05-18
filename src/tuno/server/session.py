@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import Dict, Optional
 
 from tuno.core.game import GameError, GameState
-from tuno.protocol.messages import encode_message
+from tuno.protocol.messages import ClientMsg, ServerMsg, encode_message
 from tuno.server.actions import apply_action
 from tuno.server.rooms import (
     RoomMessages,
@@ -45,7 +45,7 @@ class GameSession:
     async def attach(self, websocket: object) -> bool:
         """Register a websocket and send its first info/state payloads."""
         if len(self.connections) >= self.MAX_CONNECTIONS:
-            await self._send(websocket, "error", message="Server is at capacity.")
+            await self._send(websocket, ServerMsg.ERROR, message="Server is at capacity.")
 
             close = getattr(websocket, "close", None)
             if callable(close):
@@ -60,7 +60,7 @@ class GameSession:
 
     async def send_initial_state(self, websocket: object) -> None:
         """Send the first info/state payloads for an already registered websocket."""
-        await self._send(websocket, "info", message=RoomMessages.connected_join)
+        await self._send(websocket, ServerMsg.INFO, message=RoomMessages.connected_join)
         await self._broadcast_state()
 
     async def detach(self, websocket: object) -> None:
@@ -82,9 +82,11 @@ class GameSession:
                 result = apply_action(self.state, connection.player_id, payload)
                 connection.player_id = result.player_id
                 if result.welcome_player_id:
-                    await self._send(websocket, "welcome", player_id=result.welcome_player_id)
+                    await self._send(
+                        websocket, ServerMsg.WELCOME, player_id=result.welcome_player_id
+                    )
             except GameError as exc:
-                await self._send(websocket, "error", message=str(exc), code=exc.code or "")
+                await self._send(websocket, ServerMsg.ERROR, message=str(exc), code=exc.code or "")
         await self._broadcast_state()
 
     async def _broadcast_state(self) -> None:
@@ -94,7 +96,7 @@ class GameSession:
             try:
                 await self._send(
                     websocket,
-                    "state",
+                    ServerMsg.STATE,
                     state=self.state.snapshot_for(connection.player_id).to_dict(),
                 )
             except Exception:
@@ -102,7 +104,7 @@ class GameSession:
         for websocket in stale:
             self.connections.pop(websocket, None)
 
-    async def _send(self, websocket: object, kind: str, **payload: object) -> None:
+    async def _send(self, websocket: object, kind: ServerMsg, **payload: object) -> None:
         """Encode and send one server message to a websocket."""
         await websocket.send(encode_message(kind, **payload))
 
@@ -120,7 +122,7 @@ class RoomServer:
     async def attach(self, websocket: object) -> bool:
         """Register a websocket in room-selection mode."""
         self.connections[websocket] = RoomConnection(websocket=websocket)
-        await self._send(websocket, "info", message=RoomMessages.connected_choose)
+        await self._send(websocket, ServerMsg.INFO, message=RoomMessages.connected_choose)
         await self._send_room_list(websocket)
         return True
 
@@ -147,48 +149,48 @@ class RoomServer:
             await self._handle_room_selection(websocket, payload)
             return
 
-        if payload["type"] == "exit_room":
+        if payload["type"] == ClientMsg.EXIT_ROOM:
             await self._exit_room(websocket, connection)
             return
 
         session = self.rooms.get(connection.room_name)
         if session is None:
             connection.room_name = None
-            await self._send(websocket, "info", message=RoomMessages.closed)
+            await self._send(websocket, ServerMsg.INFO, message=RoomMessages.closed)
             await self._send_room_list(websocket)
             return
 
         await session.handle(websocket, payload)
-        if payload["type"] == "leave" and not session.state.players:
+        if payload["type"] == ClientMsg.LEAVE and not session.state.players:
             await self._delete_room(connection.room_name)
             await self._broadcast_room_list()
 
     async def _handle_room_selection(self, websocket: object, payload: dict) -> None:
         validation = validate_room_selection_payload(payload)
         if validation.error_message:
-            await self._send(websocket, "error", message=validation.error_message)
+            await self._send(websocket, ServerMsg.ERROR, message=validation.error_message)
             return
         kind = validation.command
         room_name = validation.room_name
 
         async with self._lock:
-            if kind == "create_room":
+            if kind == ClientMsg.CREATE_ROOM:
                 if room_name in self.rooms:
-                    await self._send(websocket, "error", message=RoomMessages.name_exists)
+                    await self._send(websocket, ServerMsg.ERROR, message=RoomMessages.name_exists)
                     return
                 if len(self.rooms) >= self.MAX_ROOMS:
-                    await self._send(websocket, "error", message=RoomMessages.too_many)
+                    await self._send(websocket, ServerMsg.ERROR, message=RoomMessages.too_many)
                     return
                 self.rooms[room_name] = GameSession()
             elif room_name not in self.rooms:
-                await self._send(websocket, "error", message=RoomMessages.not_found)
+                await self._send(websocket, ServerMsg.ERROR, message=RoomMessages.not_found)
                 return
 
             session = self.rooms[room_name]
             if len(session.connections) >= session.MAX_CONNECTIONS:
-                if kind == "create_room" and not session.connections:
+                if kind == ClientMsg.CREATE_ROOM and not session.connections:
                     self.rooms.pop(room_name, None)
-                await self._send(websocket, "error", message=RoomMessages.at_capacity)
+                await self._send(websocket, ServerMsg.ERROR, message=RoomMessages.at_capacity)
                 close = getattr(websocket, "close", None)
                 if callable(close):
                     await close()
@@ -197,7 +199,7 @@ class RoomServer:
             self.connections[websocket].room_name = room_name
             session.connections[websocket] = Connection(websocket=websocket)
 
-        await self._send(websocket, "room_joined", name=room_name)
+        await self._send(websocket, ServerMsg.ROOM_JOINED, name=room_name)
         await session.send_initial_state(websocket)
         await self._broadcast_room_list()
 
@@ -205,7 +207,7 @@ class RoomServer:
         """Return one websocket to room-selection mode without closing it."""
         room_name = connection.room_name
         if room_name is None:
-            await self._send(websocket, "error", message=RoomMessages.choose_first)
+            await self._send(websocket, ServerMsg.ERROR, message=RoomMessages.choose_first)
             return
 
         session = self.rooms.get(room_name)
@@ -214,7 +216,7 @@ class RoomServer:
             await session.detach(websocket)
             await self._delete_room_if_empty(room_name)
 
-        await self._send(websocket, "room_left", message=RoomMessages.left)
+        await self._send(websocket, ServerMsg.ROOM_LEFT, message=RoomMessages.left)
         await self._send_room_list(websocket)
         await self._broadcast_room_list()
 
@@ -230,7 +232,7 @@ class RoomServer:
                 connection.room_name = None
                 await self._send(
                     connection.websocket,
-                    "room_closed",
+                    ServerMsg.ROOM_CLOSED,
                     message=RoomMessages.closed,
                 )
                 await self._send_room_list(connection.websocket)
@@ -241,11 +243,11 @@ class RoomServer:
                 await self._send_room_list(connection.websocket)
 
     async def _send_room_list(self, websocket: object) -> None:
-        await self._send(websocket, "room_list", rooms=self.room_list())
+        await self._send(websocket, ServerMsg.ROOM_LIST, rooms=self.room_list())
 
     def room_list(self) -> list[dict[str, object]]:
         """Return public room metadata sorted by room name."""
         return room_list_from_states({name: session.state for name, session in self.rooms.items()})
 
-    async def _send(self, websocket: object, kind: str, **payload: object) -> None:
+    async def _send(self, websocket: object, kind: ServerMsg, **payload: object) -> None:
         await websocket.send(encode_message(kind, **payload))

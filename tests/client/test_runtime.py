@@ -4,6 +4,7 @@ import unittest
 
 from tuno.client.runtime import ClientRuntime
 from tuno.core.snapshot import GameSnapshot
+from tuno.protocol.messages import ClientMsg, ServerMsg
 
 
 class RuntimeCallbacks:
@@ -37,7 +38,7 @@ class FakeApi:
     async def close(self) -> None:
         self.closed = True
 
-    async def send(self, kind: str, **payload) -> None:
+    async def send(self, kind: ClientMsg, **payload) -> None:
         self.sent = (kind, payload)
 
 
@@ -73,7 +74,7 @@ class ClientRuntimeTests(unittest.IsolatedAsyncioTestCase):
         runtime = self.build_runtime(callbacks)
 
         # Step 1: Send an action without installing an API transport.
-        await runtime.send("start")
+        await runtime.send(ClientMsg.START)
 
         # Step 2: The command layer should receive a local connection error.
         self.assertEqual(callbacks.feedback, ["Command error: Connect first."])
@@ -84,7 +85,7 @@ class ClientRuntimeTests(unittest.IsolatedAsyncioTestCase):
         runtime = self.build_runtime(callbacks)
         runtime.api = FakeApi()  # type: ignore[assignment]
 
-        await runtime.send("exit_room")
+        await runtime.send(ClientMsg.EXIT_ROOM)
 
         self.assertEqual(
             callbacks.feedback,
@@ -115,11 +116,11 @@ class ClientRuntimeTests(unittest.IsolatedAsyncioTestCase):
 
         # Step 1: Creating a room should send the create_room protocol envelope.
         await runtime.create_room("main")
-        self.assertEqual(api.sent, ("create_room", {"name": "main"}))
+        self.assertEqual(api.sent, (ClientMsg.CREATE_ROOM, {"name": "main"}))
 
         # Step 2: Joining a room should send the join_room protocol envelope.
         await runtime.join_room("main")
-        self.assertEqual(api.sent, ("join_room", {"name": "main"}))
+        self.assertEqual(api.sent, (ClientMsg.JOIN_ROOM, {"name": "main"}))
 
     async def test_handle_messages_updates_state_and_feedback(self) -> None:
         """Apply core server messages to player id, snapshot state, and feedback."""
@@ -128,15 +129,15 @@ class ClientRuntimeTests(unittest.IsolatedAsyncioTestCase):
         runtime.state = GameSnapshot(current_color="red", top_card={"color": "red", "rank": "5"})
 
         # Step 1: Welcome should bind this client to the server-assigned player id.
-        await runtime.handle_message({"type": "welcome", "player_id": "p1"})
+        await runtime.handle_message({"type": ServerMsg.WELCOME.value, "player_id": "p1"})
 
         # Step 2: State should replace the current snapshot and clear pending feedback.
-        await runtime.handle_message({"type": "state", "state": {"started": True}})
+        await runtime.handle_message({"type": ServerMsg.STATE.value, "state": {"started": True}})
 
         # Step 3: Error should be formatted with the previous snapshot context.
         await runtime.handle_message(
             {
-                "type": "error",
+                "type": ServerMsg.ERROR.value,
                 "code": "illegal_play",
                 "message": "That card cannot be played.",
             }
@@ -155,13 +156,13 @@ class ClientRuntimeTests(unittest.IsolatedAsyncioTestCase):
         # Step 1: Room list messages update the local lobby table.
         await runtime.handle_message(
             {
-                "type": "room_list",
+                "type": ServerMsg.ROOM_LIST.value,
                 "rooms": [{"name": "main", "status": "Lobby", "player_count": 0}],
             }
         )
 
         # Step 2: Room joined messages select the room but do not create a player.
-        await runtime.handle_message({"type": "room_joined", "name": "main"})
+        await runtime.handle_message({"type": ServerMsg.ROOM_JOINED.value, "name": "main"})
 
         self.assertEqual(runtime.rooms[0]["name"], "main")
         self.assertEqual(runtime.selected_room_name, "main")
@@ -178,7 +179,7 @@ class ClientRuntimeTests(unittest.IsolatedAsyncioTestCase):
         runtime.say_uno_next = True
 
         # Step 1: Simulate the server closing the selected room.
-        await runtime.handle_message({"type": "room_left", "message": "Left room."})
+        await runtime.handle_message({"type": ServerMsg.ROOM_LEFT.value, "message": "Left room."})
 
         # Step 2: The client should return to room-selection state.
         self.assertIsNone(runtime.selected_room_name)
@@ -219,7 +220,7 @@ class ClientRuntimeTests(unittest.IsolatedAsyncioTestCase):
 
         await runtime.exit_game()
 
-        self.assertEqual(api.sent, ("leave", {}))
+        self.assertEqual(api.sent, (ClientMsg.LEAVE, {}))
         self.assertIsNone(runtime.player_id)
         self.assertFalse(runtime.say_uno_next)
         self.assertEqual(runtime.selected_room_name, "main")

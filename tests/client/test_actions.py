@@ -5,6 +5,7 @@ import unittest
 from tuno.client.actions import dispatch_command, play_card_by_number
 from tuno.client.tui.commands import parse_command
 from tuno.core.snapshot import GameSnapshot
+from tuno.protocol.messages import ClientMsg
 
 
 class ClientActionTests(unittest.IsolatedAsyncioTestCase):
@@ -23,11 +24,11 @@ class ClientActionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(
             recorder.sent,
             [
-                ("start", {}),
-                ("draw_card", {}),
-                ("pass_turn", {}),
-                ("set_uno", {"armed": True}),
-                ("exit_room", {}),
+                (ClientMsg.START, {}),
+                (ClientMsg.DRAW_CARD, {}),
+                (ClientMsg.PASS_TURN, {}),
+                (ClientMsg.SET_UNO, {"armed": True}),
+                (ClientMsg.EXIT_ROOM, {}),
             ],
         )
         self.assertEqual(recorder.exited_games, [True])
@@ -69,9 +70,9 @@ class ClientActionTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_play_card_by_number_sends_valid_play_request(self) -> None:
         """Convert a locally legal numbered card selection into a play_card send."""
-        sent: list[tuple[str, dict[str, object]]] = []
+        sent: list[tuple[ClientMsg, dict[str, object]]] = []
 
-        async def send(kind: str, **payload) -> None:
+        async def send(kind: ClientMsg, **payload) -> None:
             sent.append((kind, payload))
 
         # Step 1: Play hand slot 1 when it matches the discard rank.
@@ -98,7 +99,7 @@ class ClientActionTests(unittest.IsolatedAsyncioTestCase):
             sent,
             [
                 (
-                    "play_card",
+                    ClientMsg.PLAY_CARD,
                     {"hand_index": 0, "chosen_color": None, "say_uno": True},
                 )
             ],
@@ -107,9 +108,9 @@ class ClientActionTests(unittest.IsolatedAsyncioTestCase):
     async def test_play_card_by_number_rejects_invalid_local_play(self) -> None:
         """Reject an obviously illegal card before sending anything to the server."""
         feedback: list[str] = []
-        sent: list[tuple[str, dict[str, object]]] = []
+        sent: list[tuple[ClientMsg, dict[str, object]]] = []
 
-        async def send(kind: str, **payload) -> None:
+        async def send(kind: ClientMsg, **payload) -> None:
             sent.append((kind, payload))
 
         # Step 1: Try to play a card that matches neither current color nor rank.
@@ -144,7 +145,7 @@ class CommandDispatchRecorder:
         self.joined_rooms: list[str] = []
         self.created_rooms: list[str] = []
         self.joined_names: list[str | None] = []
-        self.sent: list[tuple[str, dict[str, object]]] = []
+        self.sent: list[tuple[ClientMsg, dict[str, object]]] = []
         self.exited: list[bool] = []
         self.exited_servers: list[bool] = []
         self.exited_games: list[bool] = []
@@ -161,7 +162,7 @@ class CommandDispatchRecorder:
     async def create_room(self, name: str) -> None:
         self.created_rooms.append(name)
 
-    async def send(self, kind: str, **payload) -> None:
+    async def send(self, kind: ClientMsg, **payload) -> None:
         self.sent.append((kind, payload))
 
     async def exit_client(self) -> None:

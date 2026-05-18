@@ -7,7 +7,12 @@ from typing import Optional
 
 from websockets.exceptions import ConnectionClosed
 
-from tuno.protocol.messages import ProtocolError, decode_client_message, encode_message
+from tuno.protocol.messages import (
+    ProtocolError,
+    ServerMsg,
+    decode_client_message,
+    encode_message,
+)
 from tuno.server.session import GameSession, RoomServer
 
 LOGGER = logging.getLogger(__name__)
@@ -23,7 +28,7 @@ async def handler(websocket, session: GameSession) -> None:
             try:
                 payload = decode_client_message(raw)
             except ProtocolError as exc:
-                await websocket.send(encode_message("error", message=str(exc)))
+                await websocket.send(encode_message(ServerMsg.ERROR, message=str(exc)))
                 continue
             await session.handle(websocket, payload)
     except ConnectionClosed:

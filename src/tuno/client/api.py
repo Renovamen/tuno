@@ -6,7 +6,7 @@ import ssl
 from typing import Any, AsyncIterator, Dict
 from urllib.parse import urlparse
 
-from tuno.protocol.messages import decode_server_message, encode_message
+from tuno.protocol.messages import ClientMsg, decode_server_message, encode_message
 
 try:
     import certifi
@@ -47,7 +47,7 @@ class ClientAPI:
             await self.websocket.close()
             self.websocket = None
 
-    async def send(self, kind: str, **payload: Any) -> None:
+    async def send(self, kind: ClientMsg, **payload: Any) -> None:
         """Encode and send one client action message."""
         if self.websocket is None:
             raise RuntimeError("Not connected.")

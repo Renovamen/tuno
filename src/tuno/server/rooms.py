@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal, Mapping
+from typing import Mapping
 
 from tuno.core.game import MAX_PLAYERS, GameState
+from tuno.protocol.messages import ClientMsg
 
-RoomCommand = Literal["create_room", "join_room"]
+ROOM_COMMANDS: frozenset[ClientMsg] = frozenset({ClientMsg.CREATE_ROOM, ClientMsg.JOIN_ROOM})
 
 
 class RoomMessages:
@@ -29,7 +30,7 @@ class RoomMessages:
 class RoomSelectionValidation:
     """Pure room-selection payload validation result."""
 
-    command: RoomCommand | None
+    command: ClientMsg | None
     room_name: str
     error_message: str | None
 
@@ -65,8 +66,12 @@ def room_list_from_states(rooms: Mapping[str, GameState]) -> list[dict[str, obje
 
 def validate_room_selection_payload(payload: dict) -> RoomSelectionValidation:
     """Validate only room command type and name presence, leaving lifecycle local."""
-    command = payload["type"]
-    if command not in {"create_room", "join_room"}:
+    raw_type = payload["type"]
+    try:
+        command = ClientMsg(raw_type)
+    except ValueError:
+        return RoomSelectionValidation(None, "", RoomMessages.choose_first)
+    if command not in ROOM_COMMANDS:
         return RoomSelectionValidation(None, "", RoomMessages.choose_first)
 
     room_name = normalize_room_name(payload.get("name", ""))

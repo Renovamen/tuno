@@ -3,6 +3,7 @@ from __future__ import annotations
 import unittest
 
 from tuno.core.game import GameError, GameState
+from tuno.protocol.messages import ClientMsg
 from tuno.server.actions import apply_action
 
 
@@ -13,7 +14,7 @@ class ServerActionTests(unittest.TestCase):
         """Join assigns a new player id and marks it for welcome delivery."""
         game = GameState(seed=11)
 
-        result = apply_action(game, None, {"type": "join", "name": "alice"})
+        result = apply_action(game, None, {"type": ClientMsg.JOIN.value, "name": "alice"})
 
         self.assertEqual(result.player_id, "p0001")
         self.assertEqual(result.welcome_player_id, "p0001")
@@ -24,7 +25,7 @@ class ServerActionTests(unittest.TestCase):
         game = GameState(seed=11)
         player_id = game.add_player("alice")
 
-        result = apply_action(game, player_id, {"type": "leave"})
+        result = apply_action(game, player_id, {"type": ClientMsg.LEAVE.value})
 
         self.assertIsNone(result.player_id)
         self.assertEqual(game.players, [])
@@ -34,7 +35,7 @@ class ServerActionTests(unittest.TestCase):
         game = GameState(seed=11)
 
         with self.assertRaises(GameError) as exc_info:
-            apply_action(game, None, {"type": "start"})
+            apply_action(game, None, {"type": ClientMsg.START.value})
 
         self.assertEqual(str(exc_info.exception), "Join first.")
 
@@ -45,7 +46,7 @@ class ServerActionTests(unittest.TestCase):
         game.add_player("bob")
         game.start(alice)
 
-        result = apply_action(game, alice, {"type": "set_uno", "armed": True})
+        result = apply_action(game, alice, {"type": ClientMsg.SET_UNO.value, "armed": True})
 
         self.assertEqual(result.player_id, alice)
         self.assertIsNone(result.welcome_player_id)

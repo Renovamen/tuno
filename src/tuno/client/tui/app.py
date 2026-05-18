@@ -17,6 +17,7 @@ from tuno.client.tui.rendering import render_tuno_logo
 from tuno.client.tui.theme import activate_tuno_theme
 from tuno.client.tui.view_state import ClientViewState, build_view_state
 from tuno.core.snapshot import GameSnapshot
+from tuno.protocol.messages import ClientMsg
 
 
 class TunoApp(App):
@@ -300,7 +301,7 @@ class TunoApp(App):
         """Delegate leaving the active round (while keeping the room) to the runtime service."""
         await self.runtime.exit_game()
 
-    async def send(self, kind: str, **payload: Any) -> None:
+    async def send(self, kind: ClientMsg, **payload: Any) -> None:
         """Delegate one outbound server action to the runtime service."""
         await self.runtime.send(kind, **payload)
 

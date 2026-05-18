@@ -29,6 +29,7 @@ except Exception:  # pragma: no cover
 
 from tuno.client.api import ClientAPI
 from tuno.core.cards import Card
+from tuno.protocol.messages import ClientMsg
 from tuno.server.session import RoomServer
 from tuno.server.standalone import run_server
 
@@ -103,9 +104,9 @@ class ClientAppHarness(unittest.IsolatedAsyncioTestCase):
         await guest.open()
         guest_events = guest.events()
         await asyncio.wait_for(guest_events.__anext__(), timeout=2)
-        await guest.send("join_room", name="main")
+        await guest.send(ClientMsg.JOIN_ROOM, name="main")
         await asyncio.wait_for(guest_events.__anext__(), timeout=2)
-        await guest.send("join", name="bob")
+        await guest.send(ClientMsg.JOIN, name="bob")
         await asyncio.wait_for(guest_events.__anext__(), timeout=2)
         await self.wait_until(
             lambda: len(self.session.rooms["main"].state.players) == 2, pilot, message="guest join"

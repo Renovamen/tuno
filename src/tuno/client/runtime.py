@@ -18,6 +18,7 @@ from tuno.client.updates import (
     is_newer_version,
 )
 from tuno.core.snapshot import GameSnapshot
+from tuno.protocol.messages import ClientMsg, ServerMsg
 
 FeedbackCallback = Callable[[str], None]
 RenderCallback = Callable[[], None]
@@ -106,7 +107,7 @@ class ClientRuntime:
             return
 
         try:
-            await self.api.send("join", name=name)
+            await self.api.send(ClientMsg.JOIN, name=name)
         except Exception as exc:  # pragma: no cover
             self._set_feedback(CommandMessages.join_failed.format(error=exc))
             await self.api.close()
@@ -139,13 +140,13 @@ class ClientRuntime:
 
     async def join_room(self, name: str) -> None:
         """Ask the connected server to enter an existing room."""
-        await self._send_room_command("join_room", name)
+        await self._send_room_command(ClientMsg.JOIN_ROOM, name)
 
     async def create_room(self, name: str) -> None:
         """Ask the connected server to create and enter a new room."""
-        await self._send_room_command("create_room", name)
+        await self._send_room_command(ClientMsg.CREATE_ROOM, name)
 
-    async def _send_room_command(self, kind: str, name: str) -> None:
+    async def _send_room_command(self, kind: ClientMsg, name: str) -> None:
         if self.api is None:
             self._set_feedback(CommandMessages.server_first)
             return
@@ -191,7 +192,7 @@ class ClientRuntime:
         # Send "leave" first so the server can release the player slot cleanly.
         if self.player_id is not None:
             with contextlib.suppress(Exception):
-                await self.api.send("leave")
+                await self.api.send(ClientMsg.LEAVE)
 
         await self.close_current_server()
         self._set_feedback(CommandMessages.disconnected)
@@ -212,7 +213,7 @@ class ClientRuntime:
             return
 
         try:
-            await self.api.send("leave")
+            await self.api.send(ClientMsg.LEAVE)
         except Exception as exc:  # pragma: no cover
             self._set_feedback(CommandMessages.send_failed.format(error=exc))
             return
@@ -251,7 +252,7 @@ class ClientRuntime:
         if api is not None:
             if player_id is not None:
                 with contextlib.suppress(Exception):
-                    await api.send("leave")
+                    await api.send(ClientMsg.LEAVE)
             with contextlib.suppress(Exception):
                 await api.close()
 
@@ -282,45 +283,45 @@ class ClientRuntime:
         """Apply one decoded server message to local client state."""
         kind = message.get("type")
 
-        if kind == "welcome":
+        if kind == ServerMsg.WELCOME:
             self._clear_pending_server_response()
             self.player_id = message.get("player_id")
             self._render_state()
-        elif kind == "room_joined":
+        elif kind == ServerMsg.ROOM_JOINED:
             self._clear_pending_server_response()
             self.selected_room_name = str(message.get("name", "")).strip() or None
             self.player_id = None
             self.state = GameSnapshot()
             self._render_state()
-        elif kind in {"room_closed", "room_left"}:
+        elif kind in {ServerMsg.ROOM_CLOSED, ServerMsg.ROOM_LEFT}:
             self._clear_pending_server_response()
             self.selected_room_name = None
             self.player_id = None
             self.state = GameSnapshot()
             self.say_uno_next = False
             self._render_state()
-        elif kind == "room_list":
+        elif kind == ServerMsg.ROOM_LIST:
             self._clear_pending_server_response()
             self.rooms = list(message.get("rooms", []))
             self._render_state()
-        elif kind == "error":
+        elif kind == ServerMsg.ERROR:
             self._set_feedback(
                 format_server_error(
                     self.state, message.get("message", "unknown error"), message.get("code", "")
                 )
             )
-        elif kind in ("info", "state"):
+        elif kind in (ServerMsg.INFO, ServerMsg.STATE):
             self._clear_pending_server_response()
-            if kind == "state":
+            if kind == ServerMsg.STATE:
                 self.state = GameSnapshot.from_dict(message.get("state", {}))
             self._render_state()
 
-    async def send(self, kind: str, **payload: Any) -> None:
+    async def send(self, kind: ClientMsg, **payload: Any) -> None:
         """Send one action to the server or surface a local transport error."""
         if not self.api:
             self._set_feedback(CommandMessages.connect_first)
             return
-        if kind == "exit_room" and self.selected_room_name is None:
+        if kind == ClientMsg.EXIT_ROOM and self.selected_room_name is None:
             self._set_feedback(CommandMessages.room_first)
             return
 
