@@ -10,6 +10,7 @@ from tuno.client.tui.completion import (
     CompletionState,
     apply_completion,
     command_candidates,
+    is_legal_to_play,
     move_selection,
     sync_completion_state,
 )
@@ -231,6 +232,8 @@ def derive_available_commands(
     room_selected: bool,
     joined: bool,
     uno_armed: bool,
+    has_rooms: bool = True,
+    has_playable_card: bool = True,
 ) -> List[str]:
     return [
         spec.template
@@ -240,6 +243,8 @@ def derive_available_commands(
             room_selected=room_selected,
             joined=joined,
             uno_armed=uno_armed,
+            has_rooms=has_rooms,
+            has_playable_card=has_playable_card,
         )
     ]
 
@@ -251,12 +256,17 @@ def _derive_available_specs(
     room_selected: bool,
     joined: bool,
     uno_armed: bool,
+    has_rooms: bool,
+    has_playable_card: bool,
 ) -> List[CommandSpec]:
     if not connected:
         return list(SERVER_SELECTION_COMMANDS)
 
     if not room_selected:
-        return list(ROOM_SELECTION_COMMANDS)
+        # Hide /connect when no rooms exist yet so users only see actionable choices.
+        return [
+            spec for spec in ROOM_SELECTION_COMMANDS if has_rooms or spec is not Commands.CONNECT
+        ]
 
     if not joined:
         return list(PLAYER_JOIN_COMMANDS)
@@ -266,7 +276,10 @@ def _derive_available_specs(
     if not state.your_turn:
         return list(JOINED_EXIT_COMMANDS)
 
-    specs: List[CommandSpec] = [Commands.PLAY]
+    specs: List[CommandSpec] = []
+    # Hide /play when the player has no legal card and therefore must draw.
+    if has_playable_card:
+        specs.append(Commands.PLAY)
     if state.can_draw:
         specs.append(Commands.DRAW)
     if state.can_pass:
@@ -425,12 +438,19 @@ class CommandController:
 
     def available_commands(self) -> List[str]:
         """Return the currently legal command templates for the local player."""
+        state = self.host.state
+        hand = my_hand(state)
+        has_playable_card = any(
+            is_legal_to_play(card, state.current_color, state.top_card) for card in hand
+        )
         return derive_available_commands(
-            self.host.state,
+            state,
             connected=self.host.api is not None,
             room_selected=self.host.selected_room_name is not None,
             joined=self.host.player_id is not None,
             uno_armed=self.host.say_uno_next,
+            has_rooms=bool(self.host.rooms),
+            has_playable_card=has_playable_card,
         )
 
     def candidates(self, raw: str) -> List[Dict[str, str]]:

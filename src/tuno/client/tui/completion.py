@@ -41,7 +41,7 @@ def sync_completion_state(
     return state
 
 
-def _is_legal_to_play(
+def is_legal_to_play(
     card: Dict[str, Any], current_color: Optional[str], top_card: Optional[Dict[str, Any]]
 ) -> bool:
     """Return True if the card is playable given the current game state."""
@@ -186,7 +186,7 @@ def _play_card_candidates(
     matches = []
     for index, card in enumerate(hand, start=1):
         token = str(index)
-        if not token.startswith(prefix) or not _is_legal_to_play(card, current_color, top_card):
+        if not token.startswith(prefix) or not is_legal_to_play(card, current_color, top_card):
             continue
         parsed = Card.from_dict(card)
         suffix = " <color>" if parsed.is_wild() else ""

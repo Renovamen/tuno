@@ -75,6 +75,18 @@ class AvailableCommandsTests(unittest.TestCase):
             cmds, ["/connect <room>", "/create <room>", "/help", "/exit_server", "/exit"]
         )
 
+    def test_room_selection_hides_connect_when_no_rooms(self) -> None:
+        """Hide `/connect` right after server connect when no rooms exist yet."""
+        cmds = derive_available_commands(
+            GameSnapshot(),
+            connected=True,
+            room_selected=False,
+            joined=False,
+            uno_armed=False,
+            has_rooms=False,
+        )
+        self.assertEqual(cmds, ["/create <room>", "/help", "/exit_server", "/exit"])
+
     def test_selected_room_before_join_help(self) -> None:
         """Offer player join and room exit commands after a room is selected."""
         cmds = derive_available_commands(
@@ -133,6 +145,62 @@ class AvailableCommandsTests(unittest.TestCase):
                 "/play <n> [color]",
                 "/draw",
                 "/uno",
+                "/help",
+                "/exit_game",
+                "/exit_room",
+                "/exit_server",
+                "/exit",
+            ],
+        )
+
+    def test_game_your_turn_hides_draw_after_already_drawn(self) -> None:
+        """Hide `/draw` once the player has drawn this turn (snapshot sets can_draw=False)."""
+        cmds = derive_available_commands(
+            GameSnapshot(
+                started=True,
+                your_turn=True,
+                can_draw=False,
+                can_pass=True,
+                uno_hint=False,
+            ),
+            connected=True,
+            room_selected=True,
+            joined=True,
+            uno_armed=False,
+        )
+        self.assertEqual(
+            cmds,
+            [
+                "/play <n> [color]",
+                "/pass",
+                "/help",
+                "/exit_game",
+                "/exit_room",
+                "/exit_server",
+                "/exit",
+            ],
+        )
+
+    def test_game_your_turn_hides_play_when_no_playable_card(self) -> None:
+        """Hide `/play` when the player has no legal card and must draw."""
+        cmds = derive_available_commands(
+            GameSnapshot(
+                started=True,
+                your_turn=True,
+                can_draw=True,
+                can_pass=False,
+                uno_hint=False,
+            ),
+            connected=True,
+            room_selected=True,
+            joined=True,
+            uno_armed=False,
+            has_playable_card=False,
+        )
+        self.assertEqual(
+            cmds,
+            [
+                "/draw",
                 "/help",
                 "/exit_game",
                 "/exit_room",

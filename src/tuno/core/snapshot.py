@@ -98,6 +98,7 @@ def build_snapshot(game: "GameState", player_id: Optional[str]) -> GameSnapshot:
             and current_player.player_id == player_id
             and game.started
             and not game.finished
+            and not game.has_drawn_this_turn
         ),
         can_pass=bool(
             current_player

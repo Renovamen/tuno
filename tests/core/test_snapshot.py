@@ -27,6 +27,18 @@ class GameSnapshotTests(unittest.TestCase):
         self.assertEqual(snapshot.players[0]["player_id"], alice)
         self.assertEqual(snapshot.players[1]["player_id"], bob)
 
+    def test_snapshot_blocks_second_draw_after_drawing_this_turn(self) -> None:
+        """Disable `can_draw` once the active player has already drawn this turn."""
+        game = GameState(seed=7)
+        alice = game.add_player("alice")
+        game.add_player("bob")
+        game.start(alice)
+        game.has_drawn_this_turn = True
+
+        snapshot = build_snapshot(game, alice)
+
+        self.assertFalse(snapshot.can_draw)
+
     def test_snapshot_reenables_can_start_for_host_after_round_finishes(self) -> None:
         """Expose restart capability to the host after a round winner is declared."""
         game = GameState(seed=7)
