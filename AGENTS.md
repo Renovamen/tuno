@@ -10,6 +10,8 @@ Must read before doing anything:
 Optional:
 - `agent_docs/cloudflare.md`: Cloudflare Workers
 - `docs/DEVELOP.md`: Full development guide
+- `docs/DESIGN.md`: Project design and architecture
+
 
 ## Entry points
 

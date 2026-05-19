@@ -1,6 +1,10 @@
 # Tuno Development
 
+This document covers the basic setup and development workflow. For project design, architecture, and module breakdowns, see [`DESIGN.md`](DESIGN.md).
+
 ## Environment
+
+Install [uv](https://docs.astral.sh/uv/#installation). Then:
 
 ```bash
 git clone https://github.com/Renovamen/tuno.git
@@ -46,21 +50,19 @@ uv run python -m tuno.client --server ws://127.0.0.1:8765 # Start with a preconf
 &nbsp;
 ## Cloudflare Workers
 
-Local development:
+Start the Worker locally:
 
 ```bash
 uv run pywrangler dev
 ```
 
-Deploy on cloudflare workers:
+Deploy on [Cloudflare Workers](https://developers.cloudflare.com/workers/languages/python/):
 
 ```bash
 uv run pywrangler deploy
 ```
 
-The Worker uses the default room lobby endpoint. After connecting, clients create or select rooms with `/create <room>` or `/connect <room>`.
-
-If you change the Durable Object class name or add more Durable Objects later, update the `durable_objects.bindings` and `migrations` sections in [`wrangler.jsonc`](wrangler.jsonc) before deploying.
+The Worker routes every request to a `TunoLobby` Durable Object that owns all room and game state. See [`docs/DESIGN.md`](DESIGN.md#cloudflare-worker) for the architecture.
 
 &nbsp;
 ## Tests

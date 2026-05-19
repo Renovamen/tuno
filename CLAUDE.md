@@ -6,6 +6,7 @@ Tuno is a Python project for a terminal-based UNO game.
 
 - `agent_docs/cloudflare.md`: Cloudflare Workers
 - `docs/DEVELOP.md`: Full development guide
+- `docs/DESIGN.md`: Project design and architecture
 
 ## Entry points
 
