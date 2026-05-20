@@ -91,6 +91,8 @@ class CommandMessages:
     room_first: str = f"Command error: Connect to a room first with {Commands.CONNECT.template}."
     join_first: str = f"Command error: Join the game first with {Commands.JOIN.template}."
     connect_first: str = "Command error: Connect first."
+    uno_not_your_turn: str = "Command error: You can only call UNO on your turn."
+    uno_already_armed: str = "Command error: UNO is already armed for your next play."
 
     # Status updates
     connected_choose_room: str = (
@@ -284,7 +286,8 @@ def _derive_available_specs(
         specs.append(Commands.DRAW)
     if state.can_pass:
         specs.append(Commands.PASS)
-    if state.uno_hint or uno_armed:
+    # Suggest /uno only before arming; once armed, calling it again is a no-op.
+    if state.uno_hint and not uno_armed:
         specs.append(Commands.UNO)
     specs.extend(JOINED_EXIT_COMMANDS)
     return specs

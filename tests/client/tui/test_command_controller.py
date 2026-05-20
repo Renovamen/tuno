@@ -8,6 +8,7 @@ from tests.client.support import (
     ClientAppHarness,
     TunoApp,
 )
+from tuno.client.tui.commands import CommandMessages
 
 
 class ClientCommandControllerTests(ClientAppHarness):
@@ -108,6 +109,54 @@ class ClientCommandControllerTests(ClientAppHarness):
 
         if guest.websocket is not None:
             await guest.close()
+
+    async def test_repeated_uno_does_not_stick_in_waiting_state(self) -> None:
+        """A second /uno (already armed) must not leave a stuck server-wait hint.
+
+        Flow:
+        1. Start a round so it is the host's turn.
+        2. First /uno arms UNO and the resulting STATE clears the waiting hint.
+        3. Second /uno is a local no-op (already armed); it must not re-enter the
+           waiting state, since no request is sent and no STATE would clear it.
+        """
+        app = TunoApp()
+        guest = ClientAPI(self.url)
+        async with app.run_test() as pilot:
+            await app.execute_command(f"/server {self.url}")
+            await self.wait_until(lambda: app.api is not None, pilot, message="server connect")
+            await app.execute_command("/create main")
+            await self.wait_until(
+                lambda: app.selected_room_name == "main", pilot, message="room create"
+            )
+            await app.execute_command("/join alice")
+            await self.wait_until(lambda: app.player_id is not None, pilot, message="host join")
+            await self.connect_guest(guest, pilot)
+            await app.execute_command("/start")
+            await self.wait_until(
+                lambda: app.state.started is True and app.state.your_turn is True,
+                pilot,
+                message="our turn",
+            )
+
+            # Step 2: First /uno arms and the server STATE clears the waiting hint.
+            await app.execute_command("/uno")
+            await self.wait_until(lambda: app.say_uno_next is True, pilot, message="armed")
+            await self.wait_until(
+                lambda: app.command_controller.awaiting_server_response is False,
+                pilot,
+                message="first uno cleared",
+            )
+
+            # Step 3: Second /uno must not get stuck waiting; it surfaces feedback
+            # through the same path used for any invalid command.
+            await app.execute_command("/uno")
+            self.assertFalse(app.command_controller.awaiting_server_response)
+            self.assertEqual(
+                app.command_controller.command_feedback_message,
+                CommandMessages.uno_already_armed,
+            )
+
+        await self.close_clients(app, guest)
 
     async def test_failed_server_switch_keeps_current_connection(self) -> None:
         """Keep the active websocket when a later `/server` target fails to open.

@@ -227,6 +227,30 @@ class ClientRuntimeTests(unittest.IsolatedAsyncioTestCase):
         self.assertIs(runtime.api, api)
         self.assertFalse(api.closed)
 
+    async def test_state_update_clears_stale_uno_arm_when_turn_ends(self) -> None:
+        """Drop a stale UNO arm once a state update shows the turn is no longer ours."""
+        callbacks = RuntimeCallbacks()
+        runtime = self.build_runtime(callbacks)
+        runtime.say_uno_next = True
+
+        await runtime.handle_message(
+            {"type": ServerMsg.STATE.value, "state": {"started": True, "your_turn": False}}
+        )
+
+        self.assertFalse(runtime.say_uno_next)
+
+    async def test_state_update_keeps_uno_arm_during_our_turn(self) -> None:
+        """Preserve a legitimate UNO arm while it is still the player's active turn."""
+        callbacks = RuntimeCallbacks()
+        runtime = self.build_runtime(callbacks)
+        runtime.say_uno_next = True
+
+        await runtime.handle_message(
+            {"type": ServerMsg.STATE.value, "state": {"started": True, "your_turn": True}}
+        )
+
+        self.assertTrue(runtime.say_uno_next)
+
     async def test_exit_game_allowed_in_lobby_drops_to_spectator(self) -> None:
         """Allow /exit_game before the round starts so the player becomes a spectator."""
         callbacks = RuntimeCallbacks()

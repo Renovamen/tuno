@@ -27,7 +27,6 @@ class ClientActionTests(unittest.IsolatedAsyncioTestCase):
                 (ClientMsg.START, {}),
                 (ClientMsg.DRAW_CARD, {}),
                 (ClientMsg.PASS_TURN, {}),
-                (ClientMsg.SET_UNO, {"armed": True}),
                 (ClientMsg.EXIT_ROOM, {}),
             ],
         )
@@ -45,7 +44,6 @@ class ClientActionTests(unittest.IsolatedAsyncioTestCase):
             "/start",
             "/draw",
             "/pass",
-            "/uno",
             "/exit_game",
             "/exit_room",
             "/exit_server",
@@ -67,6 +65,77 @@ class ClientActionTests(unittest.IsolatedAsyncioTestCase):
                 set_command_feedback=recorder.set_feedback,
                 render_state=recorder.render_state,
             )
+
+    async def _dispatch_uno(
+        self, *, state: GameSnapshot, say_uno_next: bool
+    ) -> tuple[bool, list[tuple[ClientMsg, dict[str, object]]], list[str]]:
+        """Dispatch a single /uno and return (result, sent, feedback)."""
+        sent: list[tuple[ClientMsg, dict[str, object]]] = []
+        feedback: list[str] = []
+
+        async def send(kind: ClientMsg, **payload) -> None:
+            sent.append((kind, payload))
+
+        async def noop_room(name: str) -> None:
+            return None
+
+        async def noop_connect(player_name=None, url=None) -> None:
+            return None
+
+        async def noop_exit() -> None:
+            return None
+
+        result = await dispatch_command(
+            parse_command("/uno"),
+            preferred_name="default",
+            say_uno_next=say_uno_next,
+            state=state,
+            connect=noop_connect,
+            connect_server=noop_room,
+            join_room=noop_room,
+            create_room=noop_room,
+            send=send,
+            exit_client=noop_exit,
+            exit_server=noop_exit,
+            exit_game=noop_exit,
+            set_command_feedback=feedback.append,
+            render_state=lambda: None,
+        )
+        return result, sent, feedback
+
+    async def test_uno_blocked_when_not_your_turn(self) -> None:
+        """Reject /uno locally when it is not the player's active turn."""
+        for state in (
+            GameSnapshot(),  # not started
+            GameSnapshot(started=True, your_turn=False),  # someone else's turn
+        ):
+            result, sent, feedback = await self._dispatch_uno(state=state, say_uno_next=False)
+            self.assertFalse(result)
+            self.assertEqual(sent, [])
+            self.assertIn("only call UNO on your turn", feedback[-1])
+
+    async def test_uno_preserves_armed_flag_when_blocked(self) -> None:
+        """A blocked /uno must not flip an already-armed local flag."""
+        result, sent, _ = await self._dispatch_uno(state=GameSnapshot(), say_uno_next=True)
+        self.assertTrue(result)
+        self.assertEqual(sent, [])
+
+    async def test_uno_arms_on_active_turn(self) -> None:
+        """Arm UNO and send SET_UNO when it is the player's turn."""
+        result, sent, _ = await self._dispatch_uno(
+            state=GameSnapshot(started=True, your_turn=True), say_uno_next=False
+        )
+        self.assertTrue(result)
+        self.assertEqual(sent, [(ClientMsg.SET_UNO, {"armed": True})])
+
+    async def test_uno_is_idempotent_when_already_armed(self) -> None:
+        """Do not resend SET_UNO when already armed; surface feedback instead."""
+        result, sent, feedback = await self._dispatch_uno(
+            state=GameSnapshot(started=True, your_turn=True), say_uno_next=True
+        )
+        self.assertTrue(result)
+        self.assertEqual(sent, [])
+        self.assertIn("already armed", feedback[-1])
 
     async def test_play_card_by_number_sends_valid_play_request(self) -> None:
         """Convert a locally legal numbered card selection into a play_card send."""

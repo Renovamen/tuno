@@ -311,6 +311,9 @@ class ClientRuntime:
             self._clear_pending_server_response()
             if kind == ServerMsg.STATE:
                 self.state = GameSnapshot.from_dict(message.get("state", {}))
+                # Clear a stale UNO arm whenever the turn ends or rolls over.
+                if not self.state.your_turn:
+                    self.say_uno_next = False
             self._render_state()
 
     async def send(self, kind: ClientMsg, **payload: Any) -> None:

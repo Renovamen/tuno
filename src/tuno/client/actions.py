@@ -152,8 +152,17 @@ async def _dispatch_pass(command: ParsedCommand, context: CommandDispatchContext
 
 
 async def _dispatch_uno(command: ParsedCommand, context: CommandDispatchContext) -> bool:
-    if not context.say_uno_next:
-        await context.send(ClientMsg.SET_UNO, armed=True)
+    # Only arm when it is actually our active turn; otherwise the server rejects
+    # SET_UNO and the local flag would diverge from authoritative state.
+    if not (context.state.your_turn and context.state.started):
+        context.set_command_feedback(CommandMessages.uno_not_your_turn)
+        return context.say_uno_next
+    # Already armed: surface feedback instead of resending. Routing through
+    # set_command_feedback also clears any pending server-wait hint.
+    if context.say_uno_next:
+        context.set_command_feedback(CommandMessages.uno_already_armed)
+        return True
+    await context.send(ClientMsg.SET_UNO, armed=True)
     return True
 
 

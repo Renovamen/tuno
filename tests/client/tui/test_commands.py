@@ -153,6 +153,23 @@ class AvailableCommandsTests(unittest.TestCase):
             ],
         )
 
+    def test_game_hides_uno_once_armed(self) -> None:
+        """Drop `/uno` from suggestions after the player has armed it."""
+        cmds = derive_available_commands(
+            GameSnapshot(
+                started=True,
+                your_turn=True,
+                can_draw=True,
+                can_pass=False,
+                uno_hint=True,
+            ),
+            connected=True,
+            room_selected=True,
+            joined=True,
+            uno_armed=True,
+        )
+        self.assertNotIn("/uno", cmds)
+
     def test_game_your_turn_hides_draw_after_already_drawn(self) -> None:
         """Hide `/draw` once the player has drawn this turn (snapshot sets can_draw=False)."""
         cmds = derive_available_commands(
